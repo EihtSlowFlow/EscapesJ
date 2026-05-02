@@ -3,23 +3,33 @@ package io.github.ramiro.escapesj.vista;
 import io.github.ramiro.escapesj.modelo.Cliente;
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
 import io.github.ramiro.escapesj.modelo.Inventario;
+import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
+import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.util.Map;
 
 public class VentanaPrincipal extends JFrame {
     private final AfipService afipService;
     private final Inventario inventario;
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion;
+    private JButton btnBuscar;
+    private final ProductoRepository productoRepository;
 
-    public VentanaPrincipal(AfipService afipService, Inventario inventario) {
+    public VentanaPrincipal(AfipService afipService, Inventario inventario, ProductoRepository repo) {
         this.afipService = afipService;
         this.inventario = inventario;
+        this.productoRepository = repo;
         initUI();
+
     }
 
     private void initUI() {
@@ -48,18 +58,35 @@ public class VentanaPrincipal extends JFrame {
         txtNombre.setFocusable(false); // Evitamos que el usuario haga click ahí
         txtDni = crearCampoConGuia("DNI Cliente", "DNI para AFIP", entryPanel);
         txtDescripcion = crearCampoConGuia("Descripción del Pedido", "Ej: Cambio de silenciador", entryPanel);
-        txtCodProducto = crearCampoConGuia("Código Producto", "Ingrese código (EJ: ESC-01)", entryPanel);
-        txtCantidad = crearCampoConGuia("Cantidad", "1", entryPanel);
 
+        txtCodProducto = crearCampoConGuia("Código Producto", "Acá aparece el código que tiene en el inventario", entryPanel);
+        txtCodProducto.setEditable(false);
+        txtCodProducto.setBackground(new Color(30, 35, 48)); // Fondo oscuro "modo lectura"
+        txtCodProducto.setForeground(Color.WHITE);          // Texto blanco para legibilidad
+        txtCodProducto.setCaretColor(Color.WHITE);
+        txtCantidad = crearCampoConGuia("Cantidad", "1", entryPanel);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         JButton btnAgregar = new JButton("Agregar a la Orden");
-        JButton btnBuscarProducto = new JButton("🔍 Buscar Producto en Inventario");
-        estilizarComponente(btnBuscarProducto);
-        btnBuscarProducto.addActionListener(e -> {
-            new DialogoInventario(this, inventario, producto -> {
-                producto.representarEnFila(fila -> modeloTabla.addRow(fila));
-            }).setVisible(true);
+        JButton btnBuscar = new JButton("Buscar Producto en Inventario");
+        estilizarComponente(btnBuscar);
+        btnBuscar.addActionListener(e -> {
+            // Le pasamos el repositorio y una función (lambda) que dice qué hacer con el producto elegido
+            DialogoInventario dialogo = new DialogoInventario(this, productoRepository, producto -> {
+                // Aquí recibimos el producto seleccionado y llenamos los campos de texto
+                producto.presentarseEn(new ProductoRepresentador() {
+                    public void definirCodigo(String c) {
+                        txtCodProducto.setText(c);
+                    }
+
+                    public void definirDescripcion(String d) { /* Podrías mostrarla en un label si querés */ }
+
+                    public void definirPrecio(double p) { /* Guardar el precio para el cálculo */ }
+                });
+            });
+            dialogo.setVisible(true);
         });
-        entryPanel.add(btnBuscarProducto);
+
+        entryPanel.add(btnBuscar);
         btnAgregar.setBackground(new Color(237, 28, 36)); // Rojo Logo
         btnAgregar.setForeground(Color.WHITE);
         btnAgregar.addActionListener(e -> agregarProductoALista());
@@ -157,7 +184,7 @@ public class VentanaPrincipal extends JFrame {
         c.setBackground(new Color(45, 52, 71));
         c.setForeground(Color.WHITE);
 
-        if (c instanceof javax.swing.text.JTextComponent textComp) {
+        if (c instanceof JTextComponent textComp) {
             textComp.setCaretColor(Color.WHITE);
         }
 
@@ -200,9 +227,9 @@ public class VentanaPrincipal extends JFrame {
         field.setText(hint);
         field.setForeground(new Color(150, 150, 150));
 
-        field.addFocusListener(new java.awt.event.FocusAdapter() {
+        field.addFocusListener(new FocusAdapter() {
             @Override
-            public void focusGained(java.awt.event.FocusEvent e) {
+            public void focusGained(FocusEvent e) {
                 if (field.getText().equals(hint)) {
                     field.setText("");
                     field.setForeground(Color.WHITE);
@@ -210,7 +237,7 @@ public class VentanaPrincipal extends JFrame {
             }
 
             @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
+            public void focusLost(FocusEvent e) {
                 // Si el usuario no escribió nada, vuelve el texto de guía.
                 if (field.getText().isEmpty()) {
                     field.setText(hint);
@@ -261,7 +288,7 @@ public class VentanaPrincipal extends JFrame {
         });
     }
 
-    private void completarDesdeAfip(java.util.Map<String, Object> datos) {
+    private void completarDesdeAfip(Map<String, Object> datos) {
         // TELL, DON'T ASK: El mapa le dice a los campos qué poner
         // Aquí podrías implementar un método que recorra el mapa sin pedir datos
         System.out.println("Cargando datos: " + datos);

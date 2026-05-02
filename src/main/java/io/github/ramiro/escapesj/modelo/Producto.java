@@ -16,9 +16,15 @@ public class Producto {
     public boolean coincideCodigo(String busqueda) {
         return this.codigo.equalsIgnoreCase(busqueda);
     }
-    
-    public void representarEnFila(Consumer<Object[]> filaAgregadora) {
-        filaAgregadora.accept(new Object[]{this.codigo, this.descripcion, this.precioBase});
+
+    public void presentarseEn(ProductoRepresentador representador) {
+        representador.definirCodigo(this.codigo);
+        representador.definirDescripcion(this.descripcion);
+        representador.definirPrecio(this.precioBase);
+    }
+
+    public void representarEnFila(Consumer<Object[]> receptor) {
+        receptor.accept(new Object[]{this.codigo, this.descripcion, this.precioBase});
     }
 
     @Override

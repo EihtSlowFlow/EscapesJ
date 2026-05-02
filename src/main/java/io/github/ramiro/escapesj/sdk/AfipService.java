@@ -3,16 +3,21 @@ package io.github.ramiro.escapesj.sdk;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import io.github.ramiro.escapesj.modelo.Cliente;
+import io.github.ramiro.escapesj.modelo.Cuit;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.stream.Stream;
 
 public class AfipService {
+
     private String afipToken;
     private String afipBaseUrl;
     private final Properties properties = new Properties();
@@ -28,55 +33,60 @@ public class AfipService {
             this.afipToken = properties.getProperty("afip.token");
             this.afipBaseUrl = properties.getProperty("afip.base_url");
         } catch (IOException e) {
-            System.err.println("Error: No se encontró config.properties. Intentando variables de entorno.");
-            this.afipToken = System.getenv("AFIP_TOKEN");
+            System.err.println("Advertencia: No se pudo cargar config.properties. Verifique su existencia.");
+            this.afipToken = ""; // Evita nulls posteriores
             this.afipBaseUrl = "https://apis.afip.gov.ar";
         }
     }
 
-    public Map<String, Object> consultarPadron(String cuit) {
-        if (afipToken == null || afipToken.isEmpty()) {
-            System.err.println("Error: Token de AFIP no configurado.");
-            return null;
-        }
-        try {
-            String urlStr = afipBaseUrl + "/padron/personeria/" + cuit;
-            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "Bearer " + afipToken);
-
-            if (conn.getResponseCode() == 200) {
-                Scanner scanner = new Scanner(conn.getInputStream());
-                String response = scanner.useDelimiter("\\A").next();
-                scanner.close();
-
-                JsonObject json = JsonParser.parseString(response).getAsJsonObject();
-                // Ahora 'gson' ya existe y no dará error
-                return gson.fromJson(json, Map.class);
-            } else {
-                System.err.println("Respuesta AFIP no exitosa: " + conn.getResponseCode());
-            }
-        } catch (Exception e) {
-            System.err.println("Error consultando CUIT " + cuit + ": " + e.getMessage());
-        }
-        return null;
+    public Optional<Cliente> buscarClientePorDni(String dni) {
+        return Stream.of("20", "27", "23", "24")
+                .map(prefijo -> Cuit.intentarCrear(dni, prefijo))
+                .flatMap(Optional::stream)
+                .map(this::consultarPadron) // Retorna Optional<Map>
+                .flatMap(Optional::stream)
+                .map(datos -> {
+                    // El Service extrae los datos y construye el objeto del Modelo
+                    String nombreCompleto = datos.getOrDefault("nombre", "Sin Nombre").toString();
+                    // Aquí podrías separar nombre y apellido si la API lo permite
+                    return Cuit.intentarCrear(dni, "20") // O el prefijo exitoso
+                            .map(c -> new Cliente(nombreCompleto, c));
+                })
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
-    public Map<String, Object> buscarPorDni(String dni) {
-        String[] prefijosPersonaFisica = {"20", "27", "23", "24"};
+    private Optional<Map<String, Object>> consultarPadron(Cuit cuit) {
+        return cuit.transformar(valorCuit -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(afipBaseUrl + "/padron/personeria/" + valorCuit);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Authorization", "Bearer " + afipToken);
+                conn.setConnectTimeout(3000);
 
-        for (String prefijo : prefijosPersonaFisica) {
-            String cuitPosible = ValidadorCUIT.construirCuit(dni, prefijo);
-            System.out.println("Probando con CUIT: " + cuitPosible);
-
-            Map<String, Object> resultado = consultarPadron(cuitPosible);
-
-            if (resultado != null) {
-                System.out.println("¡Encontrado con prefijo " + prefijo + "!");
-                return resultado;
+                if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                    return leerRespuesta(conn);
+                }
+            } catch (Exception e) {
+                System.err.println("Error de red consultando CUIT " + valorCuit + ": " + e.getMessage());
+            } finally {
+                if (conn != null) conn.disconnect();
             }
+            return Optional.<Map<String, Object>>empty();
+        });
+    }
+
+    private Optional<Map<String, Object>> leerRespuesta(HttpURLConnection conn) throws IOException {
+        try (Scanner scanner = new Scanner(conn.getInputStream())) {
+            String response = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
+            if (response.isEmpty()) return Optional.empty();
+
+            JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mapa = gson.fromJson(jsonObject, Map.class);
+            return Optional.ofNullable(mapa);
         }
-        System.out.println("No se encontró el DNI en el padrón con ningún prefijo común.");
-        return null;
     }
 }

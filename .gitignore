@@ -1,3 +1,5 @@
 .idea/
 *.class
 out/
+# Secretos y configuraciones locales
+config.properties

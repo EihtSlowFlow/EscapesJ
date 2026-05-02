@@ -54,4 +54,26 @@ public class DatabaseService {
             e.printStackTrace();
         }
     }
+
+    public static Connection getConnection() {
+        try {
+            Properties props = new Properties();
+            FileInputStream fis = new FileInputStream("config.properties");
+            props.load(fis);
+
+            // DEBUG: Vamos a ver qué está leyendo Java realmente
+            System.out.println("Intentando conectar con usuario: " + props.getProperty("db.user"));
+            System.out.println("URL cargada: " + props.getProperty("db.url"));
+
+            return DriverManager.getConnection(
+                    props.getProperty("db.url"),
+                    props.getProperty("db.user"),
+                    props.getProperty("db.password")
+            );
+        } catch (Exception e) {
+            // Esto te dirá si el archivo directamente no se encuentra (FileNotFoundException)
+            System.err.println("Error al cargar config.properties: " + e.getMessage());
+            return null;
+        }
+    }
 }

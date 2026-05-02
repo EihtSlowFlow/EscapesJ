@@ -13,4 +13,9 @@ public class Cliente {
         documento.put("nombre_cliente", this.nombre);
         documento.put("cuit_cliente", this.cuit.toString());
     }
+
+    public void presentarseEn(ClienteRepresentador representador) {
+        this.cuit.usarComoIdentificador(representador::definirDni);
+        representador.definirNombre(this.nombre);
+    }
 }

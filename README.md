@@ -74,6 +74,22 @@ El archivo resultante se ubicará en `target/escapesJ-1.0-SNAPSHOT.jar` y se pue
 java -jar target/escapesJ-1.0-SNAPSHOT.jar
 ```
 
+### 💻 Instalador para Windows (.exe)
+El proyecto incluye scripts preconfigurados para generar un instalador nativo de Windows. 
+Requiere tener instalado **NSIS** (Nullsoft Scriptable Install System).
+
+1. Compilar el Fat JAR como se explicó arriba.
+2. Copiar el archivo `.jar` resultante a la carpeta del instalador:
+   ```bash
+   cp target/escapesJ-1.0-SNAPSHOT.jar windows-installer/EscapesJ.jar
+   ```
+3. Compilar el instalador con NSIS:
+   ```bash
+   cd windows-installer
+   makensis EscapesJ.nsi
+   ```
+El ejecutable final se guardará en la carpeta `installer-output/` (que está excluida de git).
+
 ---
 
 ## 🔐 Certificados de AFIP (Nota de Seguridad)

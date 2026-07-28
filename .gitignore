@@ -2,7 +2,7 @@
 *.class
 out/
 target/
-installer-input/
+windows-installer/*.jar
 installer-output/
 dependency-reduced-pom.xml
 escapesj.db

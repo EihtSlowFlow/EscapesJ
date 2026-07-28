@@ -1,0 +1,18 @@
+LICENCIA DE USO - EscapesJ
+==========================
+
+Copyright (c) 2026 EscapesJ - Todos los derechos reservados.
+
+Este software es propiedad de EscapesJ y está destinado exclusivamente
+al uso interno del taller y sus operadores autorizados.
+
+CONDICIONES DE USO:
+1. Este software se proporciona "tal cual", sin garantías de ningún tipo.
+2. El uso de este software implica la aceptación de estos términos.
+3. No se permite la redistribución, copia o modificación sin autorización
+   previa por escrito del autor.
+4. El autor no se responsabiliza por pérdidas de datos derivadas del uso
+   incorrecto del sistema.
+
+Al hacer clic en "Acepto", confirma que ha leído y acepta los términos
+y condiciones anteriores.

@@ -1,172 +1,154 @@
 package io.github.ramiro.escapesj.vista;
 
 import io.github.ramiro.escapesj.modelo.Inventario;
+import io.github.ramiro.escapesj.persistencia.ConfigRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
+import io.github.ramiro.escapesj.persistencia.BoletaRepository;
+import io.github.ramiro.escapesj.persistencia.PresupuestoRepository;
+import io.github.ramiro.escapesj.persistencia.ServicioRepository;
+import io.github.ramiro.escapesj.persistencia.UsuarioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
 
 import javax.swing.*;
 import java.awt.*;
+import java.net.URL;
 
 public class VentanaLogin extends JFrame {
-    private final AfipService afipService;
-    private final Inventario inventario;
+    private final AfipService afip;
+    private final Inventario inv;
+    private final ProductoRepository prodRepo;
+    private final ServicioRepository servRepo;
+    private final UsuarioRepository usuarioRepo;
+    private final ConfigRepository configRepo;
+    private final BoletaRepository boletaRepo;
+    private final PresupuestoRepository presupuestoRepo;
+
     private JTextField txtUsuario;
     private JPasswordField txtPassword;
-    private final ProductoRepository repo;
 
-    public VentanaLogin(AfipService afip, Inventario inv, ProductoRepository repo) {
-        this.afipService = afip;
-        this.inventario = inv;
-        this.repo = repo;
+    public VentanaLogin(AfipService afip, Inventario inv, ProductoRepository prodRepo,
+                        ServicioRepository servRepo, UsuarioRepository usuarioRepo,
+                        ConfigRepository configRepo, BoletaRepository boletaRepo,
+                        PresupuestoRepository presupuestoRepo) {
+        this.afip = afip;
+        this.inv = inv;
+        this.prodRepo = prodRepo;
+        this.servRepo = servRepo;
+        this.usuarioRepo = usuarioRepo;
+        this.configRepo = configRepo;
+        this.boletaRepo = boletaRepo;
+        this.presupuestoRepo = presupuestoRepo;
         initUI();
     }
 
     private void initUI() {
         setTitle("EscapesJ - Acceso");
-        setSize(400, 550);
+        setSize(450, 550);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
-        getContentPane().setBackground(new Color(0, 43, 91)); // Azul Logo
+        getContentPane().setBackground(new Color(0, 43, 91));
+        setLayout(new BorderLayout());
 
-        // Usamos GridBagLayout para evitar que los componentes se estiren
-        JPanel mainPanel = new JPanel(new GridBagLayout());
-        mainPanel.setOpaque(false);
+        // 1. Logo arriba
+        add(new PanelCabecera(), BorderLayout.NORTH);
+
+        // 2. Formulario
+        JPanel pnlForm = new JPanel(new GridBagLayout());
+        pnlForm.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 0, 8, 0);
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Usuario
         gbc.gridx = 0;
-        // Establece que al presionar ENTER en cualquier lado de la ventana, se pulse este botón
-        // 1. Cabecera con Logo (Marca de agua sutil)[cite: 1]
-        PanelCabecera cabecera = new PanelCabecera();
-        cabecera.setLayout(new BorderLayout());
-        JLabel lblAcceso = new JLabel("ACCESO", SwingConstants.CENTER);
-        lblAcceso.setFont(new Font("SansSerif", Font.BOLD, 24));
-        lblAcceso.setForeground(Color.WHITE);
-        cabecera.add(lblAcceso, BorderLayout.SOUTH);
         gbc.gridy = 0;
-        mainPanel.add(cabecera, gbc);
+        JLabel lblU = new JLabel("Usuario:");
+        lblU.setForeground(Color.WHITE);
+        pnlForm.add(lblU, gbc);
 
-        // 2. Campo Usuario
+        txtUsuario = new JTextField(15);
+        estilizarCampo(txtUsuario); // Aplicamos el estilo oscuro
+        gbc.gridx = 1;
+        pnlForm.add(txtUsuario, gbc);
+
+        // Contraseña
+        gbc.gridx = 0;
         gbc.gridy = 1;
-        mainPanel.add(crearLabelBlanco("Usuario:"), gbc);
+        JLabel lblP = new JLabel("Contraseña:");
+        lblP.setForeground(Color.WHITE);
+        pnlForm.add(lblP, gbc);
 
-        txtUsuario = new JTextField();
-        estilizarCaja(txtUsuario, "ingrese su usuario");
+        txtPassword = new JPasswordField(15);
+        estilizarCampo(txtPassword); // Aplicamos el estilo oscuro
+        gbc.gridx = 1;
+        pnlForm.add(txtPassword, gbc);
+
+        // Botón
+        JButton btnIngresar = new JButton("Ingresar");
+        btnIngresar.setBackground(new Color(231, 76, 60));
+        btnIngresar.setForeground(Color.WHITE);
+        btnIngresar.setFont(new Font("SansSerif", Font.BOLD, 14));
+        gbc.gridx = 0;
         gbc.gridy = 2;
-        mainPanel.add(txtUsuario, gbc);
+        gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10);
+        pnlForm.add(btnIngresar, gbc);
 
-        // 3. Campo Contraseña
-        gbc.gridy = 3;
-        mainPanel.add(crearLabelBlanco("Contraseña:"), gbc);
+        add(pnlForm, BorderLayout.CENTER);
 
-        txtPassword = new JPasswordField();
-        estilizarCaja(txtPassword, "ingrese su contraseña");
-        txtPassword.setEchoChar((char) 0); // Texto visible inicialmente para el placeholder
-        gbc.gridy = 4;
-        mainPanel.add(txtPassword, gbc);
+        // CONFIGURACIÓN DE UX
+        this.getRootPane().setDefaultButton(btnIngresar); // Enter para entrar
 
-        // 4. Botón Entrar
-        JButton btnEntrar = new JButton("Entrar");
-        this.getRootPane().setDefaultButton(btnEntrar);
-        estilizarBoton(btnEntrar);
-        btnEntrar.addActionListener(e -> validarAcceso());
-        gbc.gridy = 5;
-        gbc.insets = new Insets(25, 0, 10, 0);
-        mainPanel.add(btnEntrar, gbc);
+        // Foco automático al abrir la ventana
+        SwingUtilities.invokeLater(() -> txtUsuario.requestFocusInWindow());
 
-        add(mainPanel);
-        configurarPlaceholders();
+        btnIngresar.addActionListener(e -> validarAcceso());
     }
 
-    // --- MÉTODOS DE APOYO ---
-
-    private JLabel crearLabelBlanco(String texto) {
-        JLabel lbl = new JLabel(texto);
-        lbl.setForeground(Color.WHITE); // Corrección de visibilidad[cite: 1]
-        lbl.setFont(new Font("SansSerif", Font.BOLD, 14));
-        return lbl;
-    }
-
-    private void estilizarCaja(JTextField campo, String placeholder) {
-        campo.setPreferredSize(new Dimension(250, 35)); // Tamaño proporcional[cite: 1]
-        campo.setBackground(new Color(45, 52, 71));
-        campo.setForeground(new Color(150, 150, 150));
-        campo.setText(placeholder);
-        campo.setCaretColor(Color.WHITE);
-        campo.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(70, 80, 105), 1),
-                BorderFactory.createEmptyBorder(5, 10, 5, 10)
-        ));
-    }
-
-    private void estilizarBoton(JButton btn) {
-        btn.setPreferredSize(new Dimension(250, 45));
-        btn.setBackground(new Color(237, 28, 36)); // Rojo Logo[cite: 1]
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("SansSerif", Font.BOLD, 16));
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    }
-
-    private void configurarPlaceholders() {
-        agregarEfecto(txtUsuario, "ingrese su usuario", false);
-        agregarEfecto(txtPassword, "ingrese su contraseña", true);
-    }
-
-    private void agregarEfecto(JTextField f, String h, boolean esPass) {
-        f.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent e) {
-                if (f.getText().equals(h)) {
-                    f.setText("");
-                    f.setForeground(Color.WHITE);
-                    if (esPass) ((JPasswordField) f).setEchoChar('•');
-                }
-            }
-
-            public void focusLost(java.awt.event.FocusEvent e) {
-                if (f.getText().isEmpty()) {
-                    f.setText(h);
-                    f.setForeground(new Color(150, 150, 150));
-                    if (esPass) ((JPasswordField) f).setEchoChar((char) 0);
-                }
-            }
-        });
+    /**
+     * Corrige el problema de visibilidad: Fondo oscuro, texto blanco y cursor blanco
+     */
+    private void estilizarCampo(JTextField campo) {
+        campo.setBackground(new Color(45, 52, 71)); // Gris azulado oscuro
+        campo.setForeground(Color.WHITE);           // Texto blanco
+        campo.setCaretColor(Color.WHITE);            // Cursor blanco
+        campo.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        campo.setBorder(BorderFactory.createLineBorder(new Color(70, 80, 105)));
     }
 
     private void validarAcceso() {
-        String user = txtUsuario.getText();
-        String pass = new String(txtPassword.getPassword());
+        String usuario = txtUsuario.getText().trim();
+        String password = new String(txtPassword.getPassword());
 
-        if (user.equals("AdrianAdmin") && pass.equals("escapes1")) {
-            new VentanaMenu(afipService, inventario, repo).setVisible(true);
+        if (usuarioRepo.validarCredenciales(usuario, password)) {
+            new VentanaMenu(afip, inv, prodRepo, servRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo).setVisible(true);
             this.dispose();
         } else {
-            JOptionPane.showMessageDialog(this, "Credenciales incorrectas", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error de acceso: Credenciales inválidas.");
         }
     }
 
-    // --- CLASE INTERNA PARA EL LOGO ---
     private class PanelCabecera extends JPanel {
-        private Image img;
+        private Image logo;
 
         public PanelCabecera() {
+            setPreferredSize(new Dimension(0, 200));
             setOpaque(false);
-            setPreferredSize(new Dimension(300, 180));
-            // Ruta absoluta en tu Kubuntu[cite: 1]
-            img = new ImageIcon("/home/ramiro/Documentos/escapesJ/Logo.png").getImage();
+            URL logoUrl = getClass().getResource("/Logo.png");
+            if (logoUrl != null) {
+                logo = new ImageIcon(logoUrl).getImage();
+            }
         }
 
         @Override
         protected void paintComponent(Graphics g) {
-            if (img != null) {
+            super.paintComponent(g);
+            if (logo != null) {
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
-                int size = 150;
-                g2d.drawImage(img, (getWidth() - size) / 2, 10, size, size, this);
+                g2d.drawImage(logo, (getWidth() - 180) / 2, 20, 180, 180, this);
                 g2d.dispose();
             }
-            super.paintComponent(g);
         }
     }
 }

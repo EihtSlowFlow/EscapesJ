@@ -1,5 +1,11 @@
 .idea/
 *.class
 out/
+target/
+installer-input/
+installer-output/
+dependency-reduced-pom.xml
+escapesj.db
+
 # Secretos y configuraciones locales
 config.properties

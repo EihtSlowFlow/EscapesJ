@@ -1,75 +1,125 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import io.github.ramiro.escapesj.modelo.Producto;
-import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class ProductoRepository {
-    private final Connection conn;
+    private final Connection connection;
 
-    public ProductoRepository(Connection conn) {
-        this.conn = conn;
+    public ProductoRepository(Connection connection) {
+        this.connection = connection;
     }
 
-    public List<Producto> buscarTodos() {
-        List<Producto> productos = new ArrayList<>();
-        String sql = "SELECT * FROM productos";
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                productos.add(new Producto(
+    /**
+     * Guarda un producto nuevo o actualiza uno existente si el código ya existe.
+     */
+    public void guardar(Producto p) {
+        String sql = "INSERT INTO productos (codigo, nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, precio=excluded.precio, stock=excluded.stock";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, p.getCodigo());
+            ps.setString(2, p.getNombre());
+            ps.setString(3, p.getDescripcion());
+            ps.setDouble(4, p.getPrecio());
+            ps.setInt(5, p.getStock());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Permite modificar incluso el código (llave primaria) usando el código anterior como referencia.
+     */
+    public void actualizarConCambioDeCodigo(Producto p, String viejoCodigo) {
+        String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=? WHERE codigo=?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, p.getCodigo());
+            ps.setString(2, p.getNombre());
+            ps.setString(3, p.getDescripcion());
+            ps.setDouble(4, p.getPrecio());
+            ps.setInt(5, p.getStock());
+            ps.setString(6, viejoCodigo);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Busca un producto específico por su código.
+     * Este es el método que te faltaba para el buscador.
+     */
+    public Optional<Producto> buscarPorCodigo(String codigo) {
+        String sql = "SELECT * FROM productos WHERE codigo = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, codigo);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return Optional.of(new Producto(
                         rs.getString("codigo"),
+                        rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getDouble("precio")
+                        rs.getDouble("precio"),
+                        rs.getInt("stock")
                 ));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return productos;
+        return Optional.empty();
     }
 
-    public void guardar(Producto producto) {
-        String sql = "INSERT INTO productos (codigo, descripcion, precio) VALUES (?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion), precio = VALUES(precio)";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            // El producto se "exporta" a la query sin getters
-            producto.presentarseEn(new ProductoRepresentador() {
-                public void definirCodigo(String c) {
-                    try {
-                        pstmt.setString(1, c);
-                    } catch (Exception ignored) {
-                    }
-                }
-
-                public void definirDescripcion(String d) {
-                    try {
-                        pstmt.setString(2, d);
-                    } catch (Exception ignored) {
-                    }
-                }
-
-                public void definirPrecio(double p) {
-                    try {
-                        pstmt.setDouble(3, p);
-                    } catch (Exception ignored) {
-                    }
-                }
-            });
-            pstmt.executeUpdate();
+    /**
+     * Trae la lista completa de productos para las tablas de gestión.
+     */
+    public List<Producto> buscarTodos() {
+        List<Producto> lista = new ArrayList<>();
+        String sql = "SELECT * FROM productos";
+        try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                lista.add(new Producto(
+                        rs.getString("codigo"),
+                        rs.getString("nombre"),
+                        rs.getString("descripcion"),
+                        rs.getDouble("precio"),
+                        rs.getInt("stock")
+                ));
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return lista;
     }
 
-    public void eliminar(String codigo) {
-        String sql = "DELETE FROM productos WHERE codigo = ?";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, codigo);
-            pstmt.executeUpdate();
+    /**
+     * Resta unidades del inventario al confirmar una venta.
+     */
+    public boolean intentarRestarStock(String codigo, int cantidad) {
+        String sql = "UPDATE productos SET stock = stock - ? WHERE codigo = ? AND stock >= ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, cantidad);
+            ps.setString(2, codigo);
+            ps.setInt(3, cantidad);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Restaura unidades al inventario (al quitar un ítem de la orden).
+     */
+    public void sumarStock(String codigo, int cantidad) {
+        String sql = "UPDATE productos SET stock = stock + ? WHERE codigo = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, cantidad);
+            ps.setString(2, codigo);
+            ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }

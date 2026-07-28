@@ -1,17 +1,19 @@
 package io.github.ramiro.escapesj.vista;
 
 import io.github.ramiro.escapesj.modelo.Producto;
-import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 
 public class VentanaGestionInventario extends JFrame {
     private final ProductoRepository repository;
     private DefaultTableModel model;
-    private JTextField txtCod, txtDesc, txtPre;
+    private JTable tabla;
+    private JTextField txtCod, txtNom, txtDesc, txtPre, txtStock;
 
     public VentanaGestionInventario(ProductoRepository repository) {
         this.repository = repository;
@@ -20,130 +22,155 @@ public class VentanaGestionInventario extends JFrame {
     }
 
     private void initUI() {
-        setTitle("EscapesJ - Gestión de Inventario");
-        setSize(800, 500);
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE); // No cierra el programa
+        setTitle("EscapesJ - Inventario (Modo Separado)");
+        setSize(1100, 650);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
+        setLayout(new BorderLayout(15, 15));
 
-        setLayout(new BorderLayout(10, 10));
+        // 1. TABLA CON BOTÓN "MODIFICAR"
+        model = new DefaultTableModel(new Object[]{"Código", "Nombre", "Descripción", "Precio", "Stock", "Acción"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 5;
+            } // Solo la columna del botón es editable
+        };
 
-        // 1. Tabla de Productos
-        model = new DefaultTableModel(new Object[]{"Código", "Descripción", "Precio"}, 0);
-        JTable tabla = new JTable(model);
+        tabla = new JTable(model);
         estilizarTabla(tabla);
-        JScrollPane scrollPane = new JScrollPane(tabla);
-        scrollPane.getViewport().setBackground(new Color(0, 43, 91));
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        add(scrollPane, BorderLayout.CENTER);
 
-        // 2. Formulario Lateral
-        JPanel pnlForm = new JPanel(new GridBagLayout());
-        pnlForm.setOpaque(false);
-        pnlForm.setPreferredSize(new Dimension(300, 0));
+        // Configurar el botón dentro de la celda
+        tabla.getColumnModel().getColumn(5).setCellRenderer(new ButtonRenderer());
+        tabla.getColumnModel().getColumn(5).setCellEditor(new ButtonEditor(new JCheckBox()));
+
+        JScrollPane scrollTabla = new JScrollPane(tabla);
+        scrollTabla.getViewport().setBackground(new Color(45, 52, 71));
+        scrollTabla.setBackground(new Color(45, 52, 71));
+        scrollTabla.setBorder(BorderFactory.createEmptyBorder());
+        add(scrollTabla, BorderLayout.CENTER);
+
+        // 2. PANEL DERECHO: EXCLUSIVO PARA NUEVOS
+        JPanel pnlNuevo = new JPanel(new GridBagLayout());
+        pnlNuevo.setOpaque(false);
+        pnlNuevo.setPreferredSize(new Dimension(350, 0));
+        pnlNuevo.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(Color.CYAN), "CARGAR NUEVO PRODUCTO", 0, 0, null, Color.CYAN));
+
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 10, 5, 10);
+        gbc.insets = new Insets(10, 15, 10, 15);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.gridx = 0;
 
-        txtCod = crearCampo("Código", pnlForm, gbc, 0);
-        txtDesc = crearCampo("Descripción", pnlForm, gbc, 2);
-        txtPre = crearCampo("Precio", pnlForm, gbc, 4);
+        txtCod = crearCampo("Código Nuevo", pnlNuevo, gbc, 0);
+        txtNom = crearCampo("Nombre / Modelo", pnlNuevo, gbc, 2);
+        txtDesc = crearCampo("Descripción Técnica", pnlNuevo, gbc, 4);
+        txtPre = crearCampo("Precio Unitario", pnlNuevo, gbc, 6);
+        txtStock = crearCampo("Stock Inicial", pnlNuevo, gbc, 8);
 
-        JButton btnGuardar = new JButton("Guardar / Actualizar");
-        estilizarBoton(btnGuardar, new Color(46, 204, 113));
-        btnGuardar.addActionListener(e -> guardarProducto());
-        gbc.gridy = 6;
-        add(btnGuardar); // Simplificado para el ejemplo
-        pnlForm.add(btnGuardar, gbc);
+        JButton btnGuardar = new JButton("Registrar Producto");
+        btnGuardar.setBackground(new Color(46, 204, 113));
+        btnGuardar.setForeground(Color.WHITE);
+        btnGuardar.addActionListener(e -> registrarNuevo());
+        gbc.gridy = 10;
+        pnlNuevo.add(btnGuardar, gbc);
 
-        JButton btnEliminar = new JButton("Eliminar Seleccionado");
-        estilizarBoton(btnEliminar, new Color(231, 76, 60));
-        btnEliminar.addActionListener(e -> eliminarProducto(tabla));
-        gbc.gridy = 7;
-        pnlForm.add(btnEliminar, gbc);
+        add(pnlNuevo, BorderLayout.EAST);
+    }
 
-        add(pnlForm, BorderLayout.EAST);
+    private void registrarNuevo() {
+        try {
+            Producto p = new Producto(txtCod.getText().trim(), txtNom.getText().trim(),
+                    txtDesc.getText().trim(), Double.parseDouble(txtPre.getText().trim()),
+                    Integer.parseInt(txtStock.getText().trim()));
+            repository.guardar(p);
+            actualizarTabla();
+            limpiarCampos();
+            JOptionPane.showMessageDialog(this, "Producto registrado con éxito.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error en los datos.");
+        }
     }
 
     private void actualizarTabla() {
         model.setRowCount(0);
         repository.buscarTodos().forEach(p -> {
-            p.presentarseEn(new ProductoRepresentador() {
-                public void definirCodigo(String c) {
-                    model.addRow(new Object[]{c, "", 0});
-                }
-
-                public void definirDescripcion(String d) {
-                    model.setValueAt(d, model.getRowCount() - 1, 1);
-                }
-
-                public void definirPrecio(double p) {
-                    model.setValueAt(p, model.getRowCount() - 1, 2);
-                }
-            });
+            model.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getStock(), "MODIFICAR"});
         });
     }
 
-    private void guardarProducto() {
-        Producto p = new Producto(txtCod.getText(), txtDesc.getText(), Double.parseDouble(txtPre.getText()));
-        repository.guardar(p);
-        actualizarTabla();
-        limpiarCampos();
-    }
+    // --- RENDERER Y EDITOR DEL BOTÓN DENTRO DE LA TABLA ---
 
-    private void eliminarProducto(JTable t) {
-        int row = t.getSelectedRow();
-        if (row != -1) {
-            String cod = model.getValueAt(row, 0).toString();
-            repository.eliminar(cod);
-            actualizarTabla();
+    class ButtonRenderer extends JButton implements TableCellRenderer {
+        public ButtonRenderer() {
+            setOpaque(true);
+        }
+
+        public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+            setText((v == null) ? "" : v.toString());
+            setBackground(new Color(52, 152, 219));
+            setForeground(Color.WHITE);
+            return this;
         }
     }
 
-    private JTextField crearCampo(String textoLabel, JPanel p, GridBagConstraints g, int y) {
-        // 1. El Label (Ya lo tenemos en blanco)
-        JLabel label = new JLabel(textoLabel);
-        label.setForeground(Color.WHITE);
+    class ButtonEditor extends DefaultCellEditor {
+        private JButton button;
+        private String label;
+
+        public ButtonEditor(JCheckBox checkBox) {
+            super(checkBox);
+            button = new JButton();
+            button.setOpaque(true);
+            button.addActionListener(e -> {
+                int row = tabla.getSelectedRow();
+                String codigo = model.getValueAt(row, 0).toString();
+                repository.buscarPorCodigo(codigo).ifPresent(p -> {
+                    VentanaModificarProducto dialog = new VentanaModificarProducto(VentanaGestionInventario.this, p, repository);
+                    dialog.setVisible(true);
+                    if (dialog.isActualizado()) actualizarTabla();
+                });
+                fireEditingStopped();
+            });
+        }
+
+        public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {
+            label = (v == null) ? "" : v.toString();
+            button.setText(label);
+            return button;
+        }
+
+        public Object getCellEditorValue() {
+            return label;
+        }
+    }
+
+    private JTextField crearCampo(String l, JPanel p, GridBagConstraints g, int y) {
+        JLabel lbl = new JLabel(l);
+        lbl.setForeground(Color.WHITE);
         g.gridy = y;
-        p.add(label, g);
-
-        // 2. El Cuadro de Texto (JTextField)
-        JTextField f = new JTextField();
-
-        // Color de fondo: Un toque más claro que el azul marino (RGB 45, 52, 71)
+        p.add(lbl, g);
+        JTextField f = new JTextField(15);
         f.setBackground(new Color(45, 52, 71));
-
-        // Color de letra y cursor: Blanco puro para que se lea perfecto
         f.setForeground(Color.WHITE);
         f.setCaretColor(Color.WHITE);
-
-        // EL TRUCO: Un borde gris claro para que se vea el cuadro
-        f.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(100, 110, 130), 1), // Borde exterior
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)                  // Margen interno para el texto
-        ));
-
         g.gridy = y + 1;
         p.add(f, g);
         return f;
     }
 
-    private void estilizarBoton(JButton b, Color c) {
-        b.setBackground(c);
-        b.setForeground(Color.WHITE);
-        b.setFocusPainted(false);
+    private void limpiarCampos() {
+        txtCod.setText("");
+        txtNom.setText("");
+        txtDesc.setText("");
+        txtPre.setText("");
+        txtStock.setText("");
     }
 
     private void estilizarTabla(JTable t) {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
-        t.setRowHeight(25);
-    }
-
-    private void limpiarCampos() {
-        txtCod.setText("");
-        txtDesc.setText("");
-        txtPre.setText("");
+        t.setRowHeight(35);
+        t.getTableHeader().setBackground(new Color(30, 35, 48));
+        t.getTableHeader().setForeground(Color.WHITE);
     }
 }

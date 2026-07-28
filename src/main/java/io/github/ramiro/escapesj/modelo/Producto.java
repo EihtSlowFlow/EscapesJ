@@ -3,32 +3,45 @@ package io.github.ramiro.escapesj.modelo;
 import java.util.function.Consumer;
 
 public class Producto {
-    private final String codigo;
-    private final String descripcion;
-    private final double precioBase;
+    private String codigo, nombre, descripcion;
+    private double precio;
+    private int stock;
 
-    public Producto(String codigo, String descripcion, double precioBase) {
+    public Producto(String codigo, String nombre, String descripcion, double precio, int stock) {
         this.codigo = codigo;
+        this.nombre = nombre;
         this.descripcion = descripcion;
-        this.precioBase = precioBase;
+        this.precio = precio;
+        this.stock = stock;
     }
 
-    public boolean coincideCodigo(String busqueda) {
-        return this.codigo.equalsIgnoreCase(busqueda);
+    public String getCodigo() {
+        return codigo;
     }
 
-    public void presentarseEn(ProductoRepresentador representador) {
-        representador.definirCodigo(this.codigo);
-        representador.definirDescripcion(this.descripcion);
-        representador.definirPrecio(this.precioBase);
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public double getPrecio() {
+        return precio;
+    }
+
+    public int getStock() {
+        return stock;
     }
 
     public void representarEnFila(Consumer<Object[]> receptor) {
-        receptor.accept(new Object[]{this.codigo, this.descripcion, this.precioBase});
+        receptor.accept(new Object[]{codigo, nombre, precio, stock});
     }
 
-    @Override
-    public String toString() {
-        return String.format("%s - %s ($%.2f)", codigo, descripcion, precioBase);
+    public void presentarseEn(ProductoRepresentador r) {
+        r.definirCodigo(codigo);
+        r.definirDescripcion(nombre); // Usamos nombre como descripción principal en la venta
+        r.definirPrecio(precio);
     }
 }

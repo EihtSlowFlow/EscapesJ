@@ -1,67 +1,131 @@
 package io.github.ramiro.escapesj.vista;
 
 import io.github.ramiro.escapesj.modelo.Inventario;
+import io.github.ramiro.escapesj.persistencia.ConfigRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
+import io.github.ramiro.escapesj.persistencia.BoletaRepository;
+import io.github.ramiro.escapesj.persistencia.PresupuestoRepository;
+import io.github.ramiro.escapesj.persistencia.ServicioRepository;
+import io.github.ramiro.escapesj.persistencia.UsuarioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
 
 import javax.swing.*;
 import java.awt.*;
+import java.net.URL;
 
 public class VentanaMenu extends JFrame {
-    private final AfipService afipService;
-    private final Inventario inventario;
-    private final ProductoRepository repo;
+    private final AfipService afip;
+    private final Inventario inv;
+    private final ProductoRepository prodRepo;
+    private final ServicioRepository servRepo;
+    private final UsuarioRepository usuarioRepo;
+    private final ConfigRepository configRepo;
+    private final BoletaRepository boletaRepo;
+    private final PresupuestoRepository presupuestoRepo;
 
-    public VentanaMenu(AfipService afipService, Inventario inventario, ProductoRepository repo) {
-        this.afipService = afipService;
-        this.inventario = inventario;
-        this.repo = repo; // Recibimos el repo
+    public VentanaMenu(AfipService afip, Inventario inv, ProductoRepository prodRepo,
+                       ServicioRepository servRepo, UsuarioRepository usuarioRepo,
+                       ConfigRepository configRepo, BoletaRepository boletaRepo,
+                       PresupuestoRepository presupuestoRepo) {
+        this.afip = afip;
+        this.inv = inv;
+        this.prodRepo = prodRepo;
+        this.servRepo = servRepo;
+        this.usuarioRepo = usuarioRepo;
+        this.configRepo = configRepo;
+        this.boletaRepo = boletaRepo;
+        this.presupuestoRepo = presupuestoRepo;
         initUI();
     }
 
     private void initUI() {
         setTitle("EscapesJ - Menú Principal");
-        setSize(600, 500);
+        setSize(550, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
 
-        setLayout(new BorderLayout());
+        setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
 
-        // Logo grande central
-        JLabel lblLogo = new JLabel(new ImageIcon("/home/ramiro/Documentos/escapesJ/Logo.png"));
-        lblLogo.setHorizontalAlignment(SwingConstants.CENTER);
-        add(lblLogo, BorderLayout.CENTER);
+        // 1. EL LOGO EN EL CENTRO
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.anchor = GridBagConstraints.CENTER;
+        add(new PanelLogoGrande(), gbc);
 
-        // Panel de acciones
-        JPanel pnlBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 20));
+        // 2. LOS BOTONES EN EL CENTRO INFERIOR
+        JPanel pnlBotones = new JPanel(new GridLayout(5, 1, 10, 10));
         pnlBotones.setOpaque(false);
+        pnlBotones.setPreferredSize(new Dimension(360, 300));
 
-        JButton btnInventario = crearBoton("Gestionar Inventario");
-        JButton btnVenta = crearBoton("Registrar Venta");
-        btnInventario.addActionListener(e -> {
-            // AQUÍ ES DONDE SE "USA" LA CLASE
-            // Si esta línea no existe o está comentada, IntelliJ dirá "never used"
-            new VentanaGestionInventario(repo).setVisible(true);
-        });
-        // CONEXIÓN: Al clickear, abre la VentanaPrincipal
-        btnVenta.addActionListener(e -> {
-            // Pasamos el repo que el Menú ya conoce a la Ventana Principal
-            new VentanaPrincipal(this.afipService, this.inventario, this.repo).setVisible(true);
-        });
+        JButton btnVenta = crearBotonMenu("Registrar Venta / Servicio", new Color(231, 76, 60));
+        JButton btnPresupuesto = crearBotonMenu("📄  Generar Presupuesto", new Color(155, 89, 182));
+        JButton btnInv = crearBotonMenu("Gestionar Inventario", new Color(52, 152, 219));
+        JButton btnServ = crearBotonMenu("Gestionar Servicios (Historial)", new Color(46, 204, 113));
+        JButton btnConfig = crearBotonMenu("⚙  Configuración", new Color(149, 165, 166));
 
-        pnlBotones.add(btnInventario);
+        btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo).setVisible(true));
+        btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo).setVisible(true));
+        btnInv.addActionListener(e -> new VentanaGestionInventario(prodRepo).setVisible(true));
+        btnServ.addActionListener(e -> new VentanaGestionServicios(servRepo, boletaRepo).setVisible(true));
+        btnConfig.addActionListener(e -> new VentanaConfiguracion(configRepo, usuarioRepo).setVisible(true));
+
         pnlBotones.add(btnVenta);
-        add(pnlBotones, BorderLayout.SOUTH);
+        pnlBotones.add(btnPresupuesto);
+        pnlBotones.add(btnInv);
+        pnlBotones.add(btnServ);
+        pnlBotones.add(btnConfig);
+
+        gbc.gridy = 1;
+        gbc.weighty = 0.0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.insets = new Insets(0, 0, 40, 0);
+        gbc.anchor = GridBagConstraints.PAGE_END;
+        add(pnlBotones, gbc);
     }
 
-    private JButton crearBoton(String t) {
-        JButton b = new JButton(t);
-        b.setPreferredSize(new Dimension(200, 60));
-        b.setBackground(new Color(45, 52, 71));
+    private JButton crearBotonMenu(String texto, Color color) {
+        JButton b = new JButton(texto);
+        b.setBackground(color);
         b.setForeground(Color.WHITE);
-        b.setFont(new Font("SansSerif", Font.BOLD, 14));
-        b.setBorder(BorderFactory.createLineBorder(new Color(237, 28, 36), 2));
+        b.setFont(new Font("SansSerif", Font.BOLD, 15));
+        b.setFocusPainted(false);
+        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        b.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(color.darker(), 1),
+                BorderFactory.createEmptyBorder(8, 20, 8, 20)));
         return b;
+    }
+
+    private class PanelLogoGrande extends JPanel {
+        private Image logo;
+
+        public PanelLogoGrande() {
+            setPreferredSize(new Dimension(350, 350));
+            setOpaque(false);
+            URL logoUrl = getClass().getResource("/Logo.png");
+            if (logoUrl != null) {
+                logo = new ImageIcon(logoUrl).getImage();
+            } else {
+                System.err.println("WARN: No se encontró /Logo.png en el classpath.");
+            }
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (logo != null) {
+                int size = Math.min(getWidth(), getHeight()) - 40;
+                size = Math.min(size, 300);
+                if (size > 0) {
+                    int x = (getWidth() - size) / 2;
+                    int y = (getHeight() - size) / 2;
+                    g.drawImage(logo, x, y, size, size, this);
+                }
+            }
+        }
     }
 }

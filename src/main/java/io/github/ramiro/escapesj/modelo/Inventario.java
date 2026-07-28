@@ -1,24 +1,25 @@
 package io.github.ramiro.escapesj.modelo;
 
-import java.util.ArrayList;
-import java.util.List;
+import io.github.ramiro.escapesj.persistencia.ProductoRepository;
+
 import java.util.Optional;
 
 public class Inventario {
-    private final List<Producto> productos;
+    private final ProductoRepository repository;
 
-    public Inventario() {
-        this.productos = new ArrayList<>();
-        // TODO: Aquí cargarás los datos desde la DB en el futuro
+    public Inventario(ProductoRepository repository) {
+        this.repository = repository;
     }
 
     public Optional<Producto> buscarPorCodigo(String codigo) {
-        return productos.stream()
-                .filter(p -> p.coincideCodigo(codigo))
-                .findFirst();
+        return repository.buscarPorCodigo(codigo);
     }
 
-    public void agregarProducto(Producto nuevo) {
-        Optional.ofNullable(nuevo).ifPresent(productos::add);
+    public boolean procesarVenta(String codigo, int cantidad) {
+        return repository.intentarRestarStock(codigo, cantidad);
+    }
+
+    public void restaurarStock(String codigo, int cantidad) {
+        repository.sumarStock(codigo, cantidad);
     }
 }

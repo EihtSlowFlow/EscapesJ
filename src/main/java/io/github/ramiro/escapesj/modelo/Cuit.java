@@ -19,7 +19,7 @@ public class Cuit {
     }
 
     private static String calcular(String dni, String prefijo) {
-        String parcial = prefijo + String.format("%08d", Integer.parseInt(dni));
+        String parcial = prefijo + String.format("%08d", Long.parseLong(dni));
         int[] pesos = {5, 4, 3, 2, 7, 6, 5, 4, 3, 2};
         int suma = 0;
         for (int i = 0; i < 10; i++) {

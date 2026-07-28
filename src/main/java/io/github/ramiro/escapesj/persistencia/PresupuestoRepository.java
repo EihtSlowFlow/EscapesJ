@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,14 +12,12 @@ import java.util.List;
  * Repositorio para presupuestos: creación, búsqueda y validación por código único.
  */
 public class PresupuestoRepository {
-    private final Connection conexion;
 
-    public PresupuestoRepository(Connection conexion) {
-        this.conexion = conexion;
+    public PresupuestoRepository() {
     }
 
     public record Presupuesto(int id, String codigoUnico, String dniCliente, String nombreCliente,
-                               String descripcionTrabajo, double montoEstimado,
+                               String descripcionTrabajo, BigDecimal montoEstimado,
                                String fechaEmision, String fechaLimite) {}
 
     /**
@@ -26,7 +25,8 @@ public class PresupuestoRepository {
      */
     private String generarCodigoUnico() {
         String sql = "SELECT MAX(id) FROM presupuestos";
-        try (Statement stmt = conexion.createStatement();
+        try (Connection conexion = DatabaseService.getConnection();
+             Statement stmt = conexion.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 int max = rs.getInt(1);
@@ -42,7 +42,7 @@ public class PresupuestoRepository {
      * Crea un nuevo presupuesto y devuelve el código único generado.
      */
     public String crearPresupuesto(String dniCliente, String nombreCliente,
-                                    String descripcionTrabajo, double montoEstimado,
+                                    String descripcionTrabajo, BigDecimal montoEstimado,
                                     String fechaEmision, String fechaLimite) {
         String codigo = generarCodigoUnico();
         String sql = """
@@ -50,12 +50,13 @@ public class PresupuestoRepository {
                     descripcion_trabajo, monto_estimado, fecha_emision, fecha_limite)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (Connection conexion = DatabaseService.getConnection();
+             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
             pstmt.setString(1, codigo);
             pstmt.setString(2, dniCliente);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, descripcionTrabajo);
-            pstmt.setDouble(5, montoEstimado);
+            pstmt.setBigDecimal(5, montoEstimado);
             pstmt.setString(6, fechaEmision);
             pstmt.setString(7, fechaLimite);
             pstmt.executeUpdate();
@@ -75,7 +76,8 @@ public class PresupuestoRepository {
                        descripcion_trabajo, monto_estimado, fecha_emision, fecha_limite
                 FROM presupuestos WHERE codigo_unico = ?
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (Connection conexion = DatabaseService.getConnection();
+             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
             pstmt.setString(1, codigoUnico);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -85,7 +87,7 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getDouble("monto_estimado"),
+                            rs.getBigDecimal("monto_estimado"),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     );
@@ -107,7 +109,8 @@ public class PresupuestoRepository {
                        descripcion_trabajo, monto_estimado, fecha_emision, fecha_limite
                 FROM presupuestos WHERE dni_cliente = ? ORDER BY fecha_emision DESC
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (Connection conexion = DatabaseService.getConnection();
+             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
             pstmt.setString(1, dni);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -117,7 +120,7 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getDouble("monto_estimado"),
+                            rs.getBigDecimal("monto_estimado"),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     ));

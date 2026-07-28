@@ -6,8 +6,9 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository.BoletaItem;
 
-import java.io.File;
 import java.io.FileOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.util.List;
 
@@ -23,7 +24,7 @@ public class BoletaPdfService {
     public static String generarPdf(int numeroBoleta, String fecha, String dniCliente,
                                      String nombreCliente,
                                      List<BoletaItem> items,
-                                     double subtotal,
+                                     BigDecimal subtotal,
                                      String metodoPago, double descuentoPorcentaje,
                                      String carpetaDestino) {
 
@@ -31,11 +32,11 @@ public class BoletaPdfService {
             carpetaDestino = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
         }
 
-        File dir = new File(carpetaDestino);
+        java.io.File dir = new java.io.File(carpetaDestino);
         if (!dir.exists()) dir.mkdirs();
 
         String fileName = String.format("Boleta_%04d_%s.pdf", numeroBoleta, fecha.replace("/", "-"));
-        String filePath = new File(dir, fileName).getAbsolutePath();
+        String filePath = new java.io.File(dir, fileName).getAbsolutePath();
 
         // Altura dinámica ajustada al contenido
         //  Logo+cabecera: ~90pt, cliente: 25pt, tabla header: 18pt, por ítem: 15pt, totales+pie: ~80pt
@@ -135,8 +136,8 @@ public class BoletaPdfService {
 
             // ── TOTALES ──
             boolean esEfectivo = "EFECTIVO".equalsIgnoreCase(metodoPago);
-            double descuento = esEfectivo ? subtotal * (descuentoPorcentaje / 100.0) : 0;
-            double totalFinal = subtotal - descuento;
+            BigDecimal descuento = esEfectivo ? subtotal.multiply(BigDecimal.valueOf(descuentoPorcentaje / 100.0)).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal totalFinal = subtotal.subtract(descuento);
 
             // Subtotal
             Paragraph subP = new Paragraph(String.format("Subtotal: $%,.2f", subtotal), fBody8);
@@ -145,7 +146,7 @@ public class BoletaPdfService {
             document.add(subP);
 
             // Descuento (solo si efectivo)
-            if (esEfectivo && descuento > 0) {
+            if (esEfectivo && descuento.compareTo(BigDecimal.ZERO) > 0) {
                 Paragraph dtoP = new Paragraph(
                         String.format("DTO: -%.1f%% = -$%,.2f", descuentoPorcentaje, descuento), fBody8);
                 dtoP.setAlignment(Paragraph.ALIGN_RIGHT);
@@ -165,7 +166,7 @@ public class BoletaPdfService {
                     : "Cond. Venta: Contado (Transferencia)";
             Paragraph cond = new Paragraph(condVenta, fBody8);
 
-            if (esEfectivo && descuento > 0) {
+            if (esEfectivo && descuento.compareTo(BigDecimal.ZERO) > 0) {
                 Paragraph pagoP = new Paragraph(
                         String.format("EFECTIVO: $%,.2f", totalFinal), fBold10);
                 pagoP.setAlignment(Paragraph.ALIGN_RIGHT);

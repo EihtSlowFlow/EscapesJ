@@ -1,13 +1,14 @@
 package io.github.ramiro.escapesj.modelo;
 
+import java.math.BigDecimal;
 import java.util.function.Consumer;
 
 public class Producto {
     private String codigo, nombre, descripcion;
-    private double precio;
+    private BigDecimal precio;
     private int stock;
 
-    public Producto(String codigo, String nombre, String descripcion, double precio, int stock) {
+    public Producto(String codigo, String nombre, String descripcion, BigDecimal precio, int stock) {
         this.codigo = codigo;
         this.nombre = nombre;
         this.descripcion = descripcion;
@@ -27,7 +28,7 @@ public class Producto {
         return descripcion;
     }
 
-    public double getPrecio() {
+    public BigDecimal getPrecio() {
         return precio;
     }
 

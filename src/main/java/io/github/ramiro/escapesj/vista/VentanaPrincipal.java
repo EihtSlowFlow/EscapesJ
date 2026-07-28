@@ -18,6 +18,7 @@ import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +35,7 @@ public class VentanaPrincipal extends JFrame {
     private JComboBox<String> cmbMetodoPago;
     private JLabel lblProductoInfo;
 
-    private double precioSeleccionado = 0;
+    private BigDecimal precioSeleccionado = BigDecimal.ZERO;
     private String descripcionProductoSeleccionado = "";
     private String codigoProductoSeleccionado = "";
     private static final String PLACEHOLDER_NOMBRE = "Se completa automáticamente";
@@ -44,7 +45,7 @@ public class VentanaPrincipal extends JFrame {
 
     // Registro interno para acumular los ítems antes de generar la boleta
     private record ItemOrden(String tipo, String descripcion, String codigoProducto,
-                             int cantidad, double precioUnitario, double subtotal) {}
+                             int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     public VentanaPrincipal(AfipService afip, Inventario inv, ProductoRepository prodRepo,
                             ServicioRepository servRepo, BoletaRepository boletaRepo) {
@@ -525,7 +526,7 @@ public class VentanaPrincipal extends JFrame {
                     descripcionProductoSeleccionado = d;
                 }
 
-                public void definirPrecio(double p) {
+                public void definirPrecio(BigDecimal p) {
                     precioSeleccionado = p;
                 }
             });
@@ -555,16 +556,16 @@ public class VentanaPrincipal extends JFrame {
 
             // Agregar SERVICIO (mano de obra) si hay descripción
             if (tieneServicio) {
-                double montoManoObra = 0;
+                BigDecimal montoManoObra = BigDecimal.ZERO;
                 try {
                     String montoLimpio = montoStr.replace("$", "").replace(".", "").replace(",", ".").trim();
                     if (!montoLimpio.isEmpty() && !montoLimpio.equals("0")) {
-                        montoManoObra = Double.parseDouble(montoLimpio);
+                        montoManoObra = new BigDecimal(montoLimpio);
                     }
                 } catch (NumberFormatException ignored) {}
 
-                double subtotalServicio = montoManoObra * cantidad;
-                String subtotalTexto = montoManoObra > 0
+                BigDecimal subtotalServicio = montoManoObra.multiply(BigDecimal.valueOf(cantidad));
+                String subtotalTexto = montoManoObra.compareTo(BigDecimal.ZERO) > 0
                         ? "$" + String.format("%,.0f", subtotalServicio)
                         : "A COTIZAR";
 
@@ -579,7 +580,7 @@ public class VentanaPrincipal extends JFrame {
             // Agregar PRODUCTO si hay uno seleccionado
             if (tieneProducto) {
                 if (inventario.procesarVenta(codigo, cantidad)) {
-                    double subtotal = precioSeleccionado * cantidad;
+                    BigDecimal subtotal = precioSeleccionado.multiply(BigDecimal.valueOf(cantidad));
                     modeloTabla.addRow(new Object[]{descripcionProductoSeleccionado, cantidad,
                             "$" + String.format("%,.0f", subtotal)});
 
@@ -622,9 +623,9 @@ public class VentanaPrincipal extends JFrame {
         }
 
         String fechaHoy = java.time.LocalDate.now().toString();
-        double subtotal = itemsOrden.stream().mapToDouble(ItemOrden::subtotal).sum();
-        double descuentoMonto = subtotal * (descuentoPct / 100.0);
-        double totalFinal = subtotal - descuentoMonto;
+        BigDecimal subtotal = itemsOrden.stream().map(ItemOrden::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal descuentoMonto = subtotal.multiply(BigDecimal.valueOf(descuentoPct / 100.0)).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalFinal = subtotal.subtract(descuentoMonto);
 
         // 1. Crear boleta en DB (con total final)
         int boletaId = boletaRepository.crearBoleta(dni, nombre, fechaHoy, totalFinal);
@@ -653,7 +654,7 @@ public class VentanaPrincipal extends JFrame {
 
             String resumen = "✅ Boleta #" + numeroBoleta + " generada correctamente.\n\n"
                     + "Subtotal: $" + String.format("%,.0f", subtotal) + "\n";
-            if (descuentoMonto > 0) {
+            if (descuentoMonto.compareTo(BigDecimal.ZERO) > 0) {
                 resumen += "Descuento (" + String.format("%.0f", descuentoPct) + "%): -$"
                         + String.format("%,.0f", descuentoMonto) + "\n";
             }
@@ -678,7 +679,7 @@ public class VentanaPrincipal extends JFrame {
         txtCodProducto.setText("Ninguno seleccionado");
         txtCodProducto.setForeground(new Color(150, 150, 150));
         txtCantidad.setText("1");
-        precioSeleccionado = 0;
+        precioSeleccionado = BigDecimal.ZERO;
         descripcionProductoSeleccionado = "";
         codigoProductoSeleccionado = "";
         lblProductoInfo.setText(" ");

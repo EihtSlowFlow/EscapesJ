@@ -364,47 +364,42 @@ public class VentanaPresupuesto extends JFrame {
         txtNombre.setForeground(new Color(150, 150, 150));
         txtNombre.setText("Buscando...");
 
-        new SwingWorker<String, Void>() {
-            @Override
-            protected String doInBackground() {
-                var resultado = afipService.buscarClientePorDni(dni);
+        afipService.buscarClientePorDniAsync(dni)
+            .thenAcceptAsync(resultado -> {
+                btnBuscar.setEnabled(true);
                 if (resultado.isPresent()) {
                     final String[] nombre = {null};
                     resultado.get().presentarseEn(new ClienteRepresentador() {
                         public void definirDni(String cuit) {}
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    return nombre[0];
-                }
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                btnBuscar.setEnabled(true);
-                try {
-                    String nombre = get();
-                    if (nombre != null && !nombre.isBlank()) {
+                    
+                    if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dni);
-                        txtNombre.setText(nombre);
+                        txtNombre.setText(nombre[0]);
                         txtNombre.setForeground(Color.WHITE);
                         txtDescripcion.requestFocus();
-                    } else {
-                        txtDni.setText(dni);
-                        txtNombre.setText("");
-                        txtNombre.setForeground(Color.WHITE);
-                        txtNombre.setEditable(true);
-                        txtNombre.setFocusable(true);
-                        txtNombre.setBackground(new Color(60, 60, 80));
-                        txtNombre.requestFocus();
+                        return;
                     }
-                } catch (Exception ex) {
+                }
+                
+                txtDni.setText(dni);
+                txtNombre.setText("");
+                txtNombre.setForeground(Color.WHITE);
+                txtNombre.setEditable(true);
+                txtNombre.setFocusable(true);
+                txtNombre.setBackground(new Color(60, 60, 80));
+                txtNombre.requestFocus();
+            }, SwingUtilities::invokeLater)
+            .exceptionally(ex -> {
+                SwingUtilities.invokeLater(() -> {
+                    btnBuscar.setEnabled(true);
                     txtDni.setText(dni);
                     txtNombre.setText("Error al buscar");
                     txtNombre.setForeground(new Color(255, 100, 100));
-                }
-            }
-        }.execute();
+                });
+                return null;
+            });
     }
 
     private void abrirBuscadorProducto() {

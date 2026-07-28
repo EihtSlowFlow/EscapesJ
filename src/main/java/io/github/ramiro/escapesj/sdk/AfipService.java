@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Servicio de consulta al padrón de AFIP usando la REST API de Afip SDK.
@@ -39,6 +40,11 @@ public class AfipService {
 
     private final ConfigRepository configRepo;
     private final ClienteCacheRepository cacheRepo;
+
+    // Cliente HTTP reutilizado para todas las peticiones
+    private static final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
 
     // Cache del Ticket de Acceso (token + sign) para no pedirlo en cada consulta
     private String wsaaToken;
@@ -112,6 +118,14 @@ public class AfipService {
     }
 
     /**
+     * Búsqueda asíncrona (no bloqueante) utilizable por la UI de Swing.
+     * Retorna un CompletableFuture que se resuelve en un hilo secundario.
+     */
+    public CompletableFuture<Optional<Cliente>> buscarClientePorDniAsync(String dni) {
+        return CompletableFuture.supplyAsync(() -> buscarClientePorDni(dni));
+    }
+
+    /**
      * Busca en el cache local de SQLite.
      */
     private Optional<Cliente> buscarEnCache(String dni) {
@@ -179,10 +193,20 @@ public class AfipService {
             }
 
             try {
+                // RIESGO DE SEGURIDAD: Las claves privadas se cargan en memoria temporalmente.
+                // Se recomienda encarecidamente asegurar que los archivos cert.crt y key.key 
+                // tengan permisos restrictivos en el sistema de archivos (ej. chmod 600)
+                // y que no se almacenen nunca junto con el código fuente en sistemas de control de versiones.
                 String certContent = Files.readString(Path.of(certPath), StandardCharsets.UTF_8);
                 String keyContent = Files.readString(Path.of(keyPath), StandardCharsets.UTF_8);
+                
                 authBody.addProperty("cert", certContent);
                 authBody.addProperty("key", keyContent);
+                
+                // Sobrescribir las variables locales tan pronto se añaden al JSON para minimizar su vida útil en memoria
+                certContent = null;
+                keyContent = null;
+
                 System.out.println("AFIP Auth: Cert y Key cargados desde archivos locales.");
             } catch (IOException e) {
                 System.err.println("AFIP Auth: Error leyendo cert/key: " + e.getMessage());
@@ -330,23 +354,27 @@ public class AfipService {
      * Retorna el body de respuesta como String, o null si hubo error.
      */
     private String httpPost(String url, JsonObject body) throws IOException {
-        String accessToken = configRepo.getAfipAccessToken();
         String jsonBody = gson.toJson(body);
 
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
-
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + accessToken)
                 .timeout(Duration.ofSeconds(30))
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
+
+        // Solo añadir el header Authorization si NO es el endpoint de autenticación 
+        // y tenemos un token de acceso válido configurado.
+        if (!url.equals(AFIP_SDK_AUTH_URL)) {
+            String accessToken = configRepo.getAfipAccessToken();
+            if (accessToken != null && !accessToken.isBlank()) {
+                requestBuilder.header("Authorization", "Bearer " + accessToken);
+            }
+        }
+
+        HttpRequest request = requestBuilder.build();
 
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             int status = response.statusCode();
             String responseBody = response.body();
 

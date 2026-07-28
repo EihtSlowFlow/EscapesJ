@@ -9,3 +9,6 @@ escapesj.db
 
 # Secretos y configuraciones locales
 config.properties
+afip-cert/
+boletas/
+presupuestos/

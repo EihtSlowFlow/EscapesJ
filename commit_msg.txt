@@ -1,0 +1,22 @@
+feat(core): migración a SQLite local, integración de JDateChooser y mejoras en UI/presupuestos
+
+Arquitectura y Persistencia (Core):
+* Base de Datos Local: Se reemplazó el motor de base de datos externo por SQLite de forma embebida, permitiendo que la aplicación funcione de manera local y autónoma sin depender de servidores de bases de datos.
+* Se estructuró y adaptó el DatabaseService y los Repositorios para inicializar, crear tablas y gestionar consultas con la sintaxis de SQLite.
+
+Nuevas Funcionalidades y Mejoras UI:
+* Presupuestos: Se reemplazó el campo de texto manual de "Válido Hasta" por el widget interactivo JDateChooser. Esto incluye un calendario visual desplegable, selección predeterminada a +30 días, y bloqueo de fechas pasadas en la UI.
+* Menú Principal (VentanaMenu): Se ajustó el GridBagLayout y se amplió el alto de la ventana a 800px. Se implementó un re-escalado dinámico que garantiza que el logo se cargue y se centre correctamente junto con el padding de los botones.
+* Inventario (VentanaGestionInventario): Se corrigió la "caja blanca" debajo de los ítems en la vista principal; el viewport del JScrollPane ahora respeta el fondo oscuro del tema de la tabla.
+
+Correcciones (Bug Fixes):
+* Presupuestos: Se solucionó el error donde los productos seleccionados del inventario aparecían sin nombre en la tabla. El callback ahora mapea el nombre hacia definirDescripcion() para respetar la interfaz de ProductoRepresentador.
+
+Testing y Refactorización:
+* Validación de Fechas: La lógica de validación de presupuestos fue extraída a métodos estáticos testeables (esFechaLimiteValida, esPresupuestoVigente).
+* Pruebas Unitarias: Se creó la suite PresupuestoFechaTest con 5 casos de prueba unitaria verificando el comportamiento en fechas anteriores a hoy, el mismo día, y proyecciones futuras (aprobadas exitosamente).
+
+Dependencias (pom.xml):
+* Incorporada sqlite-jdbc (v3.45.1.0) para el funcionamiento de la base de datos local SQLite.
+* Incorporada jcalendar (v1.4) para el selector gráfico de fechas.
+* Agregada junit-jupiter (v5.10.2) en scope de pruebas para ejecutar los tests.

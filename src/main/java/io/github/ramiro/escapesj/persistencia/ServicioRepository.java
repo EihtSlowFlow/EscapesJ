@@ -3,10 +3,15 @@ package io.github.ramiro.escapesj.persistencia;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ServicioRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ServicioRepository.class);
+
 
     public ServicioRepository() {
     }
@@ -21,7 +26,7 @@ public class ServicioRepository {
             ps.setString(4, s.getFecha());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 
@@ -37,7 +42,7 @@ public class ServicioRepository {
                         rs.getString("trabajo"), rs.getString("fecha")));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return lista;
     }

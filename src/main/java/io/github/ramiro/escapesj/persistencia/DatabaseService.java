@@ -1,11 +1,16 @@
 package io.github.ramiro.escapesj.persistencia;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
 public class DatabaseService {
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
+
 
     private static final String DB_FILENAME = "escapesj.db";
     private static boolean inicializado = false;
@@ -36,7 +41,7 @@ public class DatabaseService {
             }
             return conn;
         } catch (Exception e) {
-            System.err.println("Error al conectar con SQLite: " + e.getMessage());
+            logger.error("Error al conectar con SQLite: " + e.getMessage());
             return null;
         }
     }
@@ -182,7 +187,7 @@ public class DatabaseService {
                     ('ESC-009', 'Múltiple de Escape 4-1', 'Header 4 en 1 acero inoxidable', 95000.00, 3),
                     ('ESC-010', 'Cola de Escape Cromada', 'Terminal de escape cromada ovalada', 8500.00, 18)
                 """);
-                System.out.println("DB Seed: 10 productos de escape cargados.");
+                logger.info("DB Seed: 10 productos de escape cargados.");
             }
 
             // Seed: historial de servicios de ejemplo si la tabla está vacía
@@ -197,11 +202,11 @@ public class DatabaseService {
                     ('47048195', 'GONZALEZ MARTIN', 'VENTA: Caño de Escape 2.5" (x3)', '2026-06-20'),
                     ('30111222', 'LOPEZ CARLOS ALBERTO', 'SERVICIO: Reparación catalizador', '2026-07-10')
                 """);
-                System.out.println("DB Seed: 6 registros de historial cargados.");
+                logger.info("DB Seed: 6 registros de historial cargados.");
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 

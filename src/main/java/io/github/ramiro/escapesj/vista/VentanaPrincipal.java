@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.vista;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
@@ -24,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VentanaPrincipal extends JFrame {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VentanaPrincipal.class);
+
     private final AfipService afipService;
     private final Inventario inventario;
     private final ProductoRepository productoRepository;
@@ -394,7 +399,7 @@ public class VentanaPrincipal extends JFrame {
                     afipService.guardarEnCacheManual(dni, nombre);
                     txtNombre.setEditable(false);
                     txtNombre.setBackground(new Color(30, 35, 48));
-                    System.out.println("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
+                    logger.info("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
                 }
             }
         });
@@ -663,7 +668,7 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this,
                     "Boleta guardada en DB pero hubo un error al generar el PDF:\n" + ex.getMessage(),
                     "Error PDF", JOptionPane.WARNING_MESSAGE);
-            ex.printStackTrace();
+            logger.error("Error:", ex);
         }
 
         // 4. Limpiar todo el formulario

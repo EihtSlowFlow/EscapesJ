@@ -3,11 +3,16 @@ package io.github.ramiro.escapesj.persistencia;
 import io.github.ramiro.escapesj.modelo.Producto;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class ProductoRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ProductoRepository.class);
+
 
     public ProductoRepository() {
     }
@@ -27,7 +32,7 @@ public class ProductoRepository {
             ps.setInt(5, p.getStock());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 
@@ -46,7 +51,7 @@ public class ProductoRepository {
             ps.setString(6, viejoCodigo);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 
@@ -70,7 +75,7 @@ public class ProductoRepository {
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return Optional.empty();
     }
@@ -93,7 +98,7 @@ public class ProductoRepository {
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return lista;
     }
@@ -125,7 +130,7 @@ public class ProductoRepository {
             ps.setString(2, codigo);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 }

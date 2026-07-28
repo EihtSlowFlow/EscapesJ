@@ -1,5 +1,7 @@
 package io.github.ramiro.escapesj.sdk;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -18,6 +20,8 @@ import java.util.Set;
  * Utiliza AES-GCM de 256 bits y almacena una clave maestra localmente con permisos restrictivos.
  */
 public class CryptoUtil {
+    private static final Logger logger = LoggerFactory.getLogger(CryptoUtil.class);
+
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12; // 96 bits recomendado para GCM
     private static final int GCM_TAG_LENGTH = 128; // 128 bits tag
@@ -29,7 +33,7 @@ public class CryptoUtil {
         try {
             initMasterKey();
         } catch (Exception e) {
-            System.err.println("Advertencia crítica: Error inicializando CryptoUtil: " + e.getMessage());
+            logger.error("Advertencia crítica: Error inicializando CryptoUtil: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -60,7 +64,7 @@ public class CryptoUtil {
                 file.setReadable(true, true);
                 file.setWritable(true, true);
             }
-            System.out.println("CryptoUtil: Clave maestra generada en " + KEY_FILE_PATH);
+            logger.info("CryptoUtil: Clave maestra generada en " + KEY_FILE_PATH);
         }
     }
 
@@ -89,7 +93,7 @@ public class CryptoUtil {
             
             return Base64.getEncoder().encodeToString(ivAndCipherText);
         } catch (Exception e) {
-            System.err.println("CryptoUtil: Error al cifrar: " + e.getMessage());
+            logger.error("CryptoUtil: Error al cifrar: " + e.getMessage());
             return plainText; // Fallback gracefully? Or throw? Better throw or log and return plain if we can't secure it.
             // In a strict environment, throw new RuntimeException(e);
         }
@@ -124,7 +128,7 @@ public class CryptoUtil {
             // No era Base64 (ej. texto plano antiguo en la BBDD migrada)
             return encryptedBase64; 
         } catch (Exception e) {
-            System.err.println("CryptoUtil: Error al descifrar (posible texto plano antiguo): " + e.getMessage());
+            logger.error("CryptoUtil: Error al descifrar (posible texto plano antiguo): " + e.getMessage());
             return encryptedBase64; // Fallback
         }
     }

@@ -1,10 +1,15 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
 
 public class UsuarioRepository {
+    private static final Logger logger = LoggerFactory.getLogger(UsuarioRepository.class);
+
 
     public UsuarioRepository() {
     }
@@ -25,11 +30,11 @@ public class UsuarioRepository {
             }
             return false;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
             return false;
         } catch (IllegalArgumentException e) {
             // BCrypt throws IllegalArgumentException if the hash is invalid (e.g., from old plaintext passwords)
-            System.err.println("Hash de contraseña inválido para el usuario: " + usuario);
+            logger.error("Hash de contraseña inválido para el usuario: " + usuario);
             return false;
         }
     }
@@ -50,7 +55,7 @@ public class UsuarioRepository {
             ps.setString(2, usuario);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
             return false;
         }
     }
@@ -66,7 +71,7 @@ public class UsuarioRepository {
             ps.setString(2, usuarioActual);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
             return false;
         }
     }

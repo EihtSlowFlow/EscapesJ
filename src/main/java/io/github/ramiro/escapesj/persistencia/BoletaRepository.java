@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.persistencia;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BoletaRepository {
+    private static final Logger logger = LoggerFactory.getLogger(BoletaRepository.class);
+
 
     public BoletaRepository() {
     }
@@ -26,7 +31,7 @@ public class BoletaRepository {
                 return max > 0 ? max + 1 : 1;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return 1;
     }
@@ -52,7 +57,7 @@ public class BoletaRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return -1;
     }
@@ -73,7 +78,7 @@ public class BoletaRepository {
             pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
             pstmt.executeUpdate();
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 
@@ -101,7 +106,7 @@ public class BoletaRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return lista;
     }
@@ -130,7 +135,7 @@ public class BoletaRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return lista;
     }

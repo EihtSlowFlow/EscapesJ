@@ -8,6 +8,8 @@ import io.github.ramiro.escapesj.modelo.Cliente;
 import io.github.ramiro.escapesj.modelo.Cuit;
 import io.github.ramiro.escapesj.persistencia.ClienteCacheRepository;
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,6 +34,8 @@ import java.util.concurrent.CompletableFuture;
  * Cache proxy en SQLite para evitar llamadas repetidas.
  */
 public class AfipService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AfipService.class);
 
     private static final String AFIP_SDK_AUTH_URL = "https://app.afipsdk.com/api/v1/afip/auth";
     private static final String AFIP_SDK_API_URL = "https://app.afipsdk.com/api/v1/afip/requests";
@@ -58,7 +62,7 @@ public class AfipService {
         // Limpiar entradas expiradas al iniciar el servicio
         int limpiados = cacheRepo.limpiarExpirados();
         if (limpiados > 0) {
-            System.out.println("Cache AFIP: Se limpiaron " + limpiados + " entradas expiradas.");
+            logger.info("Cache AFIP: Se limpiaron " + limpiados + " entradas expiradas.");
         }
     }
 
@@ -124,17 +128,17 @@ public class AfipService {
         // 1. Intentar desde cache (síncrono y rápido, base de datos local embebida)
         Optional<Cliente> desdeCache = buscarEnCache(dni);
         if (desdeCache.isPresent()) {
-            System.out.println("AFIP Cache HIT para DNI: " + dni);
+            logger.info("AFIP Cache HIT para DNI: " + dni);
             return CompletableFuture.completedFuture(desdeCache);
         }
 
         // 2. Si no hay cache, consultar la API (requiere configuración)
         if (!estaConfigurado()) {
-            System.out.println("AFIP no configurado. Sin cache para DNI: " + dni);
+            logger.info("AFIP no configurado. Sin cache para DNI: " + dni);
             return CompletableFuture.completedFuture(Optional.empty());
         }
 
-        System.out.println("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
+        logger.info("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
         return consultarApiYCachearAsync(dni);
     }
 
@@ -146,7 +150,7 @@ public class AfipService {
         String cuit = configRepo.getAfipCuit();
         boolean esTestCuit = "20409378472".equals(cuit);
         if (esTestCuit && configRepo.isAfipProduction()) {
-            System.out.println("AFIP: CUIT de testing detectado, forzando ambiente 'dev'.");
+            logger.info("AFIP: CUIT de testing detectado, forzando ambiente 'dev'.");
         }
         return (configRepo.isAfipProduction() && !esTestCuit) ? "prod" : "dev";
     }
@@ -157,7 +161,7 @@ public class AfipService {
     private CompletableFuture<Boolean> autenticarAsync() {
         if (wsaaToken != null && wsaaSign != null && wsaaExpiration != null
                 && Instant.now().isBefore(wsaaExpiration)) {
-            System.out.println("AFIP Auth: Reutilizando Ticket de Acceso vigente.");
+            logger.info("AFIP Auth: Reutilizando Ticket de Acceso vigente.");
             return CompletableFuture.completedFuture(true);
         }
 
@@ -174,7 +178,7 @@ public class AfipService {
             String keyPath = configRepo.getAfipKeyPath();
 
             if (certPath.isBlank() || keyPath.isBlank()) {
-                System.err.println("AFIP Auth: Modo producción requiere cert y key.");
+                logger.error("AFIP Auth: Modo producción requiere cert y key.");
                 return CompletableFuture.completedFuture(false);
             }
 
@@ -190,12 +194,12 @@ public class AfipService {
                 certContent = null;
                 keyContent = null;
             } catch (IOException e) {
-                System.err.println("AFIP Auth: Error leyendo cert/key: " + e.getMessage());
+                logger.error("AFIP Auth: Error leyendo cert/key: " + e.getMessage());
                 return CompletableFuture.completedFuture(false);
             }
         }
 
-        System.out.println("AFIP Auth → POST " + AFIP_SDK_AUTH_URL + " [" + environment + "]");
+        logger.info("AFIP Auth → POST " + AFIP_SDK_AUTH_URL + " [" + environment + "]");
 
         return httpPostAsync(AFIP_SDK_AUTH_URL, authBody, 2).thenApply(responseBody -> {
             if (responseBody == null) return false;
@@ -215,11 +219,11 @@ public class AfipService {
                     wsaaExpiration = Instant.now().plusSeconds(3600 * 10);
                 }
 
-                System.out.println("AFIP Auth ← OK. Token obtenido. Expira: " + wsaaExpiration);
+                logger.info("AFIP Auth ← OK. Token obtenido. Expira: " + wsaaExpiration);
                 return true;
             }
 
-            System.err.println("AFIP Auth ← Error: No se recibió token/sign. Respuesta: " + responseBody);
+            logger.error("AFIP Auth ← Error: No se recibió token/sign. Respuesta: " + responseBody);
             return false;
         });
     }
@@ -230,7 +234,7 @@ public class AfipService {
     private CompletableFuture<Optional<Cliente>> consultarApiYCachearAsync(String dni) {
         return autenticarAsync().thenCompose(authOk -> {
             if (!authOk) {
-                System.err.println("AFIP: No se pudo autenticar con el WSAA.");
+                logger.error("AFIP: No se pudo autenticar con el WSAA.");
                 return CompletableFuture.completedFuture(Optional.<Cliente>empty());
             }
 
@@ -250,17 +254,17 @@ public class AfipService {
             paramsCuit.addProperty("documento", dniLong);
             reqCuit.add("params", paramsCuit);
 
-            System.out.println("AFIP Padrón → Buscando CUIT para DNI " + dni + "...");
+            logger.info("AFIP Padrón → Buscando CUIT para DNI " + dni + "...");
             return httpPostAsync(AFIP_SDK_API_URL, reqCuit, 2).thenCompose(respCuitStr -> {
                 if (respCuitStr == null) return CompletableFuture.completedFuture(Optional.<Cliente>empty());
 
                 long cuitNumerico = extraerCuit(gson.fromJson(respCuitStr, JsonElement.class));
                 if (cuitNumerico == -1) {
-                    System.out.println("AFIP: DNI " + dni + " no encontrado en el padrón.");
+                    logger.info("AFIP: DNI " + dni + " no encontrado en el padrón.");
                     return CompletableFuture.completedFuture(Optional.<Cliente>empty());
                 }
 
-                System.out.println("AFIP: CUIT encontrado para DNI " + dni + ": " + cuitNumerico);
+                logger.info("AFIP: CUIT encontrado para DNI " + dni + ": " + cuitNumerico);
 
                 JsonObject reqPersona = new JsonObject();
                 reqPersona.addProperty("environment", environment);
@@ -274,7 +278,7 @@ public class AfipService {
                 paramsPersona.addProperty("idPersona", cuitNumerico);
                 reqPersona.add("params", paramsPersona);
 
-                System.out.println("AFIP Padrón → Obteniendo datos para CUIT " + cuitNumerico + "...");
+                logger.info("AFIP Padrón → Obteniendo datos para CUIT " + cuitNumerico + "...");
                 return httpPostAsync(AFIP_SDK_API_URL, reqPersona, 2).thenApply(respPersonaStr -> {
                     if (respPersonaStr == null) return Optional.<Cliente>empty();
 
@@ -295,13 +299,13 @@ public class AfipService {
                     String prefijo = cuitStr.substring(0, 2);
 
                     cacheRepo.guardar(dni, nombre, cuitStr, prefijo);
-                    System.out.println("AFIP: Resultado cacheado — " + nombre + " (CUIT: " + cuitStr + ")");
+                    logger.info("AFIP: Resultado cacheado — " + nombre + " (CUIT: " + cuitStr + ")");
 
                     return Cuit.intentarCrear(dni, prefijo).map(cuit -> new Cliente(nombre, cuit));
                 });
             });
         }).exceptionally(ex -> {
-            System.err.println("Error consultando AFIP para DNI " + dni + ": " + ex.getMessage());
+            logger.error("Error consultando AFIP para DNI " + dni + ": " + ex.getMessage());
             return Optional.<Cliente>empty();
         });
     }
@@ -341,19 +345,19 @@ public class AfipService {
             .handle((response, ex) -> {
                 if (ex != null) {
                     if (attempt <= maxRetries) {
-                        System.err.println("AFIP Error Red (intento " + attempt + "): " + ex.getMessage() + ". Reintentando...");
+                        logger.error("AFIP Error Red (intento " + attempt + "): " + ex.getMessage() + ". Reintentando...");
                         return delayedRetry(request, maxRetries, attempt);
                     }
-                    System.err.println("AFIP Error de Red definitivo: " + ex.getMessage());
+                    logger.error("AFIP Error de Red definitivo: " + ex.getMessage());
                     return CompletableFuture.<String>completedFuture(null);
                 }
                 
                 int status = response.statusCode();
                 if (status >= 500 && attempt <= maxRetries) {
-                    System.err.println("AFIP Error HTTP " + status + " (intento " + attempt + "). Reintentando...");
+                    logger.error("AFIP Error HTTP " + status + " (intento " + attempt + "). Reintentando...");
                     return delayedRetry(request, maxRetries, attempt);
                 } else if (status >= 400) {
-                    System.err.println("AFIP Error HTTP " + status + ": " + response.body());
+                    logger.error("AFIP Error HTTP " + status + ": " + response.body());
                     return CompletableFuture.<String>completedFuture(null);
                 }
                 

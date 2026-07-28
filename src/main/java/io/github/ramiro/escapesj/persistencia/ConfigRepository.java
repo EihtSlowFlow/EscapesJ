@@ -1,9 +1,14 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Optional;
 
 public class ConfigRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ConfigRepository.class);
+
 
     public ConfigRepository() {
     }
@@ -22,7 +27,7 @@ public class ConfigRepository {
                 return (valor != null && !valor.isBlank()) ? Optional.of(valor) : Optional.empty();
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return Optional.empty();
     }
@@ -43,7 +48,7 @@ public class ConfigRepository {
             ps.setString(2, valor);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 

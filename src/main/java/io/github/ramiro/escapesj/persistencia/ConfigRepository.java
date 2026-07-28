@@ -31,6 +31,10 @@ public class ConfigRepository {
      * Guarda o actualiza un valor de configuración.
      */
     public void guardar(String clave, String valor) {
+        if ("afip.access_token".equals(clave)) {
+            valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
+        }
+        
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
         try (Connection connection = DatabaseService.getConnection();
@@ -47,7 +51,9 @@ public class ConfigRepository {
      * Obtiene el Access Token de Afip SDK configurado.
      */
     public String getAfipAccessToken() {
-        return obtener("afip.access_token").orElse("");
+        return obtener("afip.access_token")
+                .map(io.github.ramiro.escapesj.sdk.CryptoUtil::decrypt)
+                .orElse("");
     }
 
     /**

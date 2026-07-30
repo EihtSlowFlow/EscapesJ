@@ -21,10 +21,9 @@ public class BoletaRepository {
     public record BoletaResumen(int id, int numero, String dni, String nombreCliente, String fecha, BigDecimal total) {}
     public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
-    private int siguienteNumero() {
+    private int siguienteNumero(Connection txConn) {
         String sql = "SELECT MAX(numero) FROM boletas";
-        try (Connection conexion = DatabaseService.getConnection();
-             Statement stmt = conexion.createStatement();
+        try (Statement stmt = txConn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 int max = rs.getInt(1);
@@ -36,14 +35,17 @@ public class BoletaRepository {
         return 1;
     }
 
-    public int crearBoleta(String dni, String nombreCliente, String fecha, BigDecimal total) {
-        int numero = siguienteNumero();
+    public int crearBoleta(String dni, String nombreCliente, String fecha, double total) {
+        return crearBoleta(this.conexion, dni, nombreCliente, fecha, total);
+    }
+
+    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
+        int numero = siguienteNumero(txConn);
         String sql = """
                 INSERT INTO boletas (numero, dni, nombre_cliente, fecha, total)
                 VALUES (?, ?, ?, ?, ?)
                 """;
-        try (Connection conexion = DatabaseService.getConnection();
-             PreparedStatement pstmt = conexion.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, numero);
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
@@ -62,13 +64,16 @@ public class BoletaRepository {
         return -1;
     }
 
-    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
+    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
+        agregarItem(this.conexion, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+    }
+
+    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
         String sql = """
                 INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
-        try (Connection conexion = DatabaseService.getConnection();
-             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
             pstmt.setInt(1, boletaId);
             pstmt.setString(2, tipo);
             pstmt.setString(3, descripcion);
@@ -79,20 +84,21 @@ public class BoletaRepository {
             pstmt.executeUpdate();
         } catch (Exception e) {
             logger.error("Error:", e);
+            e.printStackTrace();
+            throw new RuntimeException("Error agregando item", e);
         }
     }
 
-    public List<BoletaResumen> buscarBoletasPorDni(String dni) {
+    public List<BoletaResumen> buscarBoletasPorDni(String dniBuscado) {
+        return buscarBoletasPorDni(this.conexion, dniBuscado);
+    }
+
+    public List<BoletaResumen> buscarBoletasPorDni(Connection txConn, String dniBuscado) {
         List<BoletaResumen> lista = new ArrayList<>();
-        String sql = """
-                SELECT id, numero, dni, nombre_cliente, fecha, total
-                FROM boletas
-                WHERE dni = ?
-                ORDER BY fecha DESC
-                """;
-        try (Connection conexion = DatabaseService.getConnection();
-             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
-            pstmt.setString(1, dni);
+        String sql = "SELECT * FROM boletas WHERE dni = ? ORDER BY fecha DESC";
+
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
+            pstmt.setString(1, dniBuscado);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     lista.add(new BoletaResumen(
@@ -112,14 +118,19 @@ public class BoletaRepository {
     }
 
     public List<BoletaItem> obtenerItems(int boletaId) {
+        return obtenerItems(this.conexion, boletaId);
+    }
+
+    public List<BoletaItem> obtenerItems(Connection txConn, int boletaId) {
         List<BoletaItem> lista = new ArrayList<>();
         String sql = """
-                SELECT id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal
+                SELECT id, tipo, descripcion, codigo_producto, cantidad, precio_unitario,
+                       (cantidad * precio_unitario) AS subtotal
                 FROM boleta_items
                 WHERE boleta_id = ?
+                ORDER BY id ASC
                 """;
-        try (Connection conexion = DatabaseService.getConnection();
-             PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
             pstmt.setInt(1, boletaId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {

@@ -21,8 +21,14 @@ public class VentanaConfiguracion extends JFrame {
 
     private JTextField txtAccessToken, txtCuit, txtCertPath, txtKeyPath;
     private JCheckBox chkProduction;
-    private JTextField txtUsuarioActual, txtUsuarioNuevo;
-    private JPasswordField txtPasswordActual, txtPasswordNueva, txtPasswordConfirmar;
+    private JTextField txtUsuarioActual;
+    private JTextField txtUsuarioNuevo;
+    private JPasswordField txtPasswordActual;
+    private JPasswordField txtPasswordNueva;
+    private JPasswordField txtPasswordConfirmar;
+    private JTextField txtPreguntaSeguridad;
+    private JTextField txtRespuestaSeguridad;
+    private JTextField txtRutaBoletas, txtRutaPresupuestos;
 
     public VentanaConfiguracion(ConfigRepository configRepo, UsuarioRepository usuarioRepo) {
         this.configRepo = configRepo;
@@ -49,17 +55,18 @@ public class VentanaConfiguracion extends JFrame {
         pnlHeader.add(lblTitulo);
         add(pnlHeader, BorderLayout.NORTH);
 
-        // Panel principal con scroll
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setOpaque(false);
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 30, 20, 30));
+        // Panel principal de pestañas
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setBackground(new Color(45, 52, 71));
+        tabbedPane.setForeground(Color.WHITE);
+        tabbedPane.setOpaque(false);
+        tabbedPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // === SECCIÓN AFIP SDK ===
-        mainPanel.add(crearSeparador("CONFIGURACIÓN AFIP SDK"));
-
         JPanel pnlAfip = new JPanel(new GridBagLayout());
-        pnlAfip.setOpaque(false);
+        pnlAfip.setOpaque(true);
+        pnlAfip.setBackground(new Color(0, 43, 91));
+        pnlAfip.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -107,7 +114,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlCert.add(txtCertPath, BorderLayout.CENTER);
         JButton btnCert = new JButton("📂");
         btnCert.setPreferredSize(new Dimension(45, 30));
-        btnCert.addActionListener(e -> elegirArchivo(txtCertPath, "crt"));
+        btnCert.addActionListener(e -> elegirArchivoFichero(txtCertPath, "crt"));
         pnlCert.add(btnCert, BorderLayout.EAST);
         pnlAfip.add(pnlCert, gbc);
 
@@ -124,7 +131,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlKey.add(txtKeyPath, BorderLayout.CENTER);
         JButton btnKey = new JButton("📂");
         btnKey.setPreferredSize(new Dimension(45, 30));
-        btnKey.addActionListener(e -> elegirArchivo(txtKeyPath, "key"));
+        btnKey.addActionListener(e -> elegirArchivoFichero(txtKeyPath, "key"));
         pnlKey.add(btnKey, BorderLayout.EAST);
         pnlAfip.add(pnlKey, gbc);
 
@@ -139,14 +146,13 @@ public class VentanaConfiguracion extends JFrame {
         btnGuardarAfip.addActionListener(e -> guardarConfigAfip());
         pnlAfip.add(btnGuardarAfip, gbc);
 
-        mainPanel.add(pnlAfip);
-        mainPanel.add(Box.createVerticalStrut(25));
+        tabbedPane.addTab("AFIP", pnlAfip);
 
         // === SECCIÓN CREDENCIALES ===
-        mainPanel.add(crearSeparador("CAMBIAR CREDENCIALES DE ACCESO"));
-
         JPanel pnlCreds = new JPanel(new GridBagLayout());
-        pnlCreds.setOpaque(false);
+        pnlCreds.setOpaque(true);
+        pnlCreds.setBackground(new Color(0, 43, 91));
+        pnlCreds.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -189,6 +195,20 @@ public class VentanaConfiguracion extends JFrame {
         pnlCreds.add(txtPasswordConfirmar, gbc);
 
         gbc.gridy = 10;
+        pnlCreds.add(crearLabel("Pregunta de Seguridad (Opcional, para recuperar clave):"), gbc);
+        gbc.gridy = 11;
+        txtPreguntaSeguridad = new JTextField();
+        estilizarCampo(txtPreguntaSeguridad);
+        pnlCreds.add(txtPreguntaSeguridad, gbc);
+
+        gbc.gridy = 12;
+        pnlCreds.add(crearLabel("Respuesta de Seguridad:"), gbc);
+        gbc.gridy = 13;
+        txtRespuestaSeguridad = new JTextField();
+        estilizarCampo(txtRespuestaSeguridad);
+        pnlCreds.add(txtRespuestaSeguridad, gbc);
+
+        gbc.gridy = 14;
         gbc.insets = new Insets(15, 5, 5, 5);
         JButton btnCambiarCreds = new JButton("Actualizar Credenciales");
         btnCambiarCreds.setBackground(new Color(46, 204, 113));
@@ -199,13 +219,63 @@ public class VentanaConfiguracion extends JFrame {
         btnCambiarCreds.addActionListener(e -> cambiarCredenciales());
         pnlCreds.add(btnCambiarCreds, gbc);
 
-        mainPanel.add(pnlCreds);
+        tabbedPane.addTab("Credenciales", pnlCreds);
 
-        JScrollPane scroll = new JScrollPane(mainPanel);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        add(scroll, BorderLayout.CENTER);
+        // === SECCIÓN DIRECTORIOS ===
+        JPanel pnlDirectorios = new JPanel(new GridBagLayout());
+        pnlDirectorios.setOpaque(true);
+        pnlDirectorios.setBackground(new Color(0, 43, 91));
+        pnlDirectorios.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 5, 5, 5);
+        gbc.weightx = 1.0;
+        gbc.gridx = 0;
+
+        gbc.gridy = 0;
+        pnlDirectorios.add(crearLabel("Carpeta para Boletas:"), gbc);
+        gbc.gridy = 1;
+        JPanel pnlBoletasDir = new JPanel(new BorderLayout(5, 0));
+        pnlBoletasDir.setOpaque(false);
+        txtRutaBoletas = new JTextField();
+        estilizarCampo(txtRutaBoletas);
+        txtRutaBoletas.setEditable(false);
+        pnlBoletasDir.add(txtRutaBoletas, BorderLayout.CENTER);
+        JButton btnBoletasDir = new JButton("📂");
+        btnBoletasDir.setPreferredSize(new Dimension(45, 30));
+        btnBoletasDir.addActionListener(e -> elegirDirectorio(txtRutaBoletas));
+        pnlBoletasDir.add(btnBoletasDir, BorderLayout.EAST);
+        pnlDirectorios.add(pnlBoletasDir, gbc);
+
+        gbc.gridy = 2;
+        pnlDirectorios.add(crearLabel("Carpeta para Presupuestos:"), gbc);
+        gbc.gridy = 3;
+        JPanel pnlPresupDir = new JPanel(new BorderLayout(5, 0));
+        pnlPresupDir.setOpaque(false);
+        txtRutaPresupuestos = new JTextField();
+        estilizarCampo(txtRutaPresupuestos);
+        txtRutaPresupuestos.setEditable(false);
+        pnlPresupDir.add(txtRutaPresupuestos, BorderLayout.CENTER);
+        JButton btnPresupDir = new JButton("📂");
+        btnPresupDir.setPreferredSize(new Dimension(45, 30));
+        btnPresupDir.addActionListener(e -> elegirDirectorio(txtRutaPresupuestos));
+        pnlPresupDir.add(btnPresupDir, BorderLayout.EAST);
+        pnlDirectorios.add(pnlPresupDir, gbc);
+
+        gbc.gridy = 4;
+        gbc.insets = new Insets(20, 5, 5, 5);
+        JButton btnGuardarRutas = new JButton("Guardar Rutas");
+        btnGuardarRutas.setBackground(new Color(155, 89, 182));
+        btnGuardarRutas.setForeground(Color.WHITE);
+        btnGuardarRutas.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnGuardarRutas.setFocusPainted(false);
+        btnGuardarRutas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnGuardarRutas.addActionListener(e -> guardarRutas());
+        pnlDirectorios.add(btnGuardarRutas, gbc);
+
+        tabbedPane.addTab("Directorios", pnlDirectorios);
+
+        add(tabbedPane, BorderLayout.CENTER);
     }
 
     private void cargarDatos() {
@@ -214,6 +284,54 @@ public class VentanaConfiguracion extends JFrame {
         chkProduction.setSelected(configRepo.isAfipProduction());
         txtCertPath.setText(configRepo.getAfipCertPath());
         txtKeyPath.setText(configRepo.getAfipKeyPath());
+        txtRutaBoletas.setText(configRepo.getRutaBoletas());
+        txtRutaPresupuestos.setText(configRepo.getRutaPresupuestos());
+
+        usuarioRepo.obtenerPreguntaSeguridad("admin").ifPresent(p -> txtPreguntaSeguridad.setText(p));
+    }
+
+    private void elegirArchivoFichero(JTextField campo, String extension) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            if (path.endsWith("." + extension)) {
+                campo.setText(path);
+            } else {
+                JOptionPane.showMessageDialog(this, "El archivo debe tener la extensión ." + extension);
+            }
+        }
+    }
+
+    private void elegirDirectorio(JTextField campo) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            if (!path.endsWith("/") && !path.endsWith("\\")) {
+                path += System.getProperty("file.separator");
+            }
+            campo.setText(path);
+        }
+    }
+
+    private void guardarRutas() {
+        String rutaBoletas = txtRutaBoletas.getText().trim();
+        String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
+
+        try {
+            if (!rutaBoletas.isEmpty()) configRepo.guardar("ruta.boletas", rutaBoletas);
+            if (!rutaPresupuestos.isEmpty()) configRepo.guardar("ruta.presupuestos", rutaPresupuestos);
+
+            JOptionPane.showMessageDialog(this,
+                    "Rutas actualizadas correctamente.",
+                    "Configuración", JOptionPane.INFORMATION_MESSAGE);
+        } catch (java.sql.SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error al guardar las rutas en la base de datos:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
     }
 
     private void guardarConfigAfip() {
@@ -248,11 +366,19 @@ public class VentanaConfiguracion extends JFrame {
         }
 
         // Guardar en DB
-        configRepo.guardar("afip.access_token", token);
-        configRepo.guardar("afip.cuit", cuit);
-        configRepo.guardar("afip.production", produccion ? "true" : "false");
-        configRepo.guardar("afip.cert_path", certPath);
-        configRepo.guardar("afip.key_path", keyPath);
+        try {
+            configRepo.guardar("afip.access_token", token);
+            configRepo.guardar("afip.cuit", cuit);
+            configRepo.guardar("afip.production", produccion ? "true" : "false");
+            configRepo.guardar("afip.cert_path", certPath);
+            configRepo.guardar("afip.key_path", keyPath);
+        } catch (java.sql.SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error al guardar la configuración de AFIP en la base de datos:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            return;
+        }
 
         // Testear conexión en segundo plano
         JDialog dlgEspera = new JDialog(this, "Verificando...", true);
@@ -398,8 +524,15 @@ public class VentanaConfiguracion extends JFrame {
             usuarioRepo.cambiarUsuario(usuarioActual, usuarioNuevo);
         }
 
+        // Configurar pregunta de seguridad si se completaron los campos
+        String pregunta = txtPreguntaSeguridad.getText().trim();
+        String respuesta = txtRespuestaSeguridad.getText().trim();
+        if (!pregunta.isEmpty() && !respuesta.isEmpty()) {
+            usuarioRepo.configurarPreguntaSeguridad(usuarioNuevo.isEmpty() ? usuarioActual : usuarioNuevo, pregunta, respuesta);
+        }
+
         JOptionPane.showMessageDialog(this,
-                "Credenciales actualizadas correctamente.",
+                "Credenciales y seguridad actualizadas correctamente.",
                 "Configuración", JOptionPane.INFORMATION_MESSAGE);
 
         // Limpiar campos
@@ -407,6 +540,7 @@ public class VentanaConfiguracion extends JFrame {
         txtPasswordNueva.setText("");
         txtPasswordConfirmar.setText("");
         txtUsuarioNuevo.setText("");
+        txtRespuestaSeguridad.setText("");
     }
 
     private JLabel crearLabel(String texto) {

@@ -40,6 +40,7 @@ public class ConfigRepository {
             valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
         }
         
+    public void guardar(String clave, String valor) throws SQLException {
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
         try (Connection connection = DatabaseService.getConnection();
@@ -87,5 +88,25 @@ public class ConfigRepository {
      */
     public String getAfipKeyPath() {
         return obtener("afip.key_path").orElse("");
+    }
+
+    /**
+     * Obtiene la ruta donde se guardarán las boletas.
+     * Fallback: carpeta Documentos del usuario.
+     */
+    public String getRutaBoletas() {
+        return obtener("ruta.boletas").orElse(
+                System.getProperty("user.home") + "/Documentos/escapesJ/boletas/"
+        );
+    }
+
+    /**
+     * Obtiene la ruta donde se guardarán los presupuestos.
+     * Fallback: carpeta Documentos del usuario.
+     */
+    public String getRutaPresupuestos() {
+        return obtener("ruta.presupuestos").orElse(
+                System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/"
+        );
     }
 }

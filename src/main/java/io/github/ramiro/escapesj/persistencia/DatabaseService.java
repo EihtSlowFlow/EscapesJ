@@ -90,14 +90,23 @@ public class DatabaseService {
                 )
             """);
 
-            // Tabla Usuarios (Login configurable)
+            // Tabla Usuarios (Login configurable y recuperación)
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     usuario VARCHAR(50) NOT NULL UNIQUE,
-                    password VARCHAR(100) NOT NULL
+                    password VARCHAR(100) NOT NULL,
+                    pregunta_seguridad VARCHAR(255),
+                    respuesta_seguridad VARCHAR(100)
                 )
             """);
+            // Migración para bases de datos existentes
+            try {
+                stmt.execute("ALTER TABLE usuarios ADD COLUMN pregunta_seguridad VARCHAR(255)");
+                stmt.execute("ALTER TABLE usuarios ADD COLUMN respuesta_seguridad VARCHAR(100)");
+            } catch (Exception e) {
+                // Si la columna ya existe, SQLite tira un error que podemos ignorar en esta migración
+            }
 
             // Tabla Configuración (AFIP token, URL, etc.)
             stmt.execute("""

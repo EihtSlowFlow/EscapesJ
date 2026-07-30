@@ -618,10 +618,10 @@ public class VentanaPrincipal extends JFrame {
 
         // Leer método de pago y descuento
         String metodoPago = (String) cmbMetodoPago.getSelectedItem();
-        double descuentoPct = 0;
+        java.math.BigDecimal descuentoPct = java.math.BigDecimal.ZERO;
         if ("EFECTIVO".equals(metodoPago)) {
             try {
-                descuentoPct = Double.parseDouble(txtDescuento.getText().trim());
+                descuentoPct = new java.math.BigDecimal(txtDescuento.getText().trim());
             } catch (NumberFormatException ignored) {}
         }
 
@@ -630,11 +630,11 @@ public class VentanaPrincipal extends JFrame {
         // Convert UI items to service DTO
         java.util.List<io.github.ramiro.escapesj.servicio.ItemFacturacion> itemsDto = itemsOrden.stream()
                 .map(item -> new io.github.ramiro.escapesj.servicio.ItemFacturacion(
-                        item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario().doubleValue()))
+                        item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario()))
                 .collect(java.util.stream.Collectors.toList());
 
         io.github.ramiro.escapesj.servicio.FacturacionRequest request = new io.github.ramiro.escapesj.servicio.FacturacionRequest(
-                dni, nombre, fechaHoy, itemsDto, descuentoPct
+                dni, nombre, fechaHoy, itemsDto, metodoPago, descuentoPct
         );
 
         io.github.ramiro.escapesj.servicio.FacturacionResult resultadoFacturacion;
@@ -653,17 +653,17 @@ public class VentanaPrincipal extends JFrame {
         String carpetaPdf = configRepository.getRutaBoletas();
         try {
             String rutaPdf = io.github.ramiro.escapesj.servicio.BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
-                    resultadoFacturacion.items(), BigDecimal.valueOf(resultadoFacturacion.subtotal()), metodoPago, descuentoPct, carpetaPdf);
+                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
 
-            double descuentoMonto = resultadoFacturacion.subtotal() * (descuentoPct / 100.0);
+            java.math.BigDecimal descuentoMonto = resultadoFacturacion.subtotal().multiply(descuentoPct.divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP));
 
             String resumen = "✅ Boleta #" + resultadoFacturacion.numero() + " generada correctamente.\n\n"
-                    + "Subtotal: $" + String.format("%,.0f", resultadoFacturacion.subtotal()) + "\n";
-            if (descuentoMonto > 0) {
-                resumen += "Descuento (" + String.format("%.0f", descuentoPct) + "%): -$"
-                        + String.format("%,.0f", descuentoMonto) + "\n";
+                    + "Subtotal: $" + String.format("%,.2f", resultadoFacturacion.subtotal()) + "\n";
+            if (descuentoMonto.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                resumen += "Descuento (" + String.format("%,.2f", descuentoPct) + "%): -$"
+                        + String.format("%,.2f", descuentoMonto) + "\n";
             }
-            resumen += "Total: $" + String.format("%,.0f", resultadoFacturacion.totalFinal()) + "\n"
+            resumen += "Total: $" + String.format("%,.2f", resultadoFacturacion.totalFinal()) + "\n"
                     + "Método: " + metodoPago + "\n\n"
                     + "PDF guardado en:\n" + rutaPdf;
 

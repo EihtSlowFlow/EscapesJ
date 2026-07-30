@@ -35,7 +35,7 @@ public class BoletaRepository {
         return 1;
     }
 
-    public int crearBoleta(String dni, String nombreCliente, String fecha, double total) {
+    public int crearBoleta(String dni, String nombreCliente, String fecha, BigDecimal total) {
         try (Connection conn = DatabaseService.getConnection()) {
             return crearBoleta(conn, dni, nombreCliente, fecha, total);
         } catch (Exception e) {
@@ -44,7 +44,7 @@ public class BoletaRepository {
         }
     }
 
-    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
+    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, BigDecimal total) {
         int numero = siguienteNumero(txConn);
         String sql = """
                 INSERT INTO boletas (numero, dni, nombre_cliente, fecha, total)
@@ -55,7 +55,7 @@ public class BoletaRepository {
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, fecha);
-            pstmt.setBigDecimal(5, BigDecimal.valueOf(total));
+            pstmt.setBigDecimal(5, total);
             pstmt.executeUpdate();
 
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -70,7 +70,7 @@ public class BoletaRepository {
         return -1;
     }
 
-    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
+    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
         try (Connection conn = DatabaseService.getConnection()) {
             agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
         } catch (Exception e) {
@@ -78,7 +78,7 @@ public class BoletaRepository {
         }
     }
 
-    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
+    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
         String sql = """
                 INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -89,8 +89,8 @@ public class BoletaRepository {
             pstmt.setString(3, descripcion);
             pstmt.setString(4, codigoProducto);
             pstmt.setInt(5, cantidad);
-            pstmt.setBigDecimal(6, BigDecimal.valueOf(precioUnitario));
-            pstmt.setBigDecimal(7, BigDecimal.valueOf(precioUnitario).multiply(BigDecimal.valueOf(cantidad)));
+            pstmt.setBigDecimal(6, precioUnitario);
+            pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
             pstmt.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();

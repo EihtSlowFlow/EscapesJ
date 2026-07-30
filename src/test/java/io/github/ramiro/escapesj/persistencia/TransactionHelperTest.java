@@ -70,9 +70,9 @@ public class TransactionHelperTest {
         FacturacionRequest request = new FacturacionRequest(
                 "11111111", "Test Rollback Cliente", "2026-01-01",
                 List.of(
-                        new ItemFacturacion("PRODUCTO", "P1", "TEST-001", 2, 1000), // This one succeeds
-                        new ItemFacturacion("PRODUCTO", "P2", "TEST-002", 5, 1000)  // This one will fail due to no stock
-                ), 0
+                        new ItemFacturacion("PRODUCTO", "P1", "TEST-001", 2, new java.math.BigDecimal("1000")), // This one succeeds
+                        new ItemFacturacion("PRODUCTO", "P2", "TEST-002", 5, new java.math.BigDecimal("1000"))  // This one will fail due to no stock
+                ), "EFECTIVO", java.math.BigDecimal.ZERO
         );
 
         Exception exception = assertThrows(RuntimeException.class, () -> {
@@ -111,8 +111,8 @@ public class TransactionHelperTest {
         FacturacionRequest request = new FacturacionRequest(
                 "11111111", "Test Commit Cliente", "2026-01-01",
                 List.of(
-                        new ItemFacturacion("PRODUCTO", "P1", "TEST-001", 5, 1000)
-                ), 0
+                        new ItemFacturacion("PRODUCTO", "P1", "TEST-001", 5, new java.math.BigDecimal("1000"))
+                ), "TRANSFERENCIA", java.math.BigDecimal.ZERO
         );
 
         var result = facturacionService.facturarOrden(request);

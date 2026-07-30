@@ -55,17 +55,17 @@ public class VentanaConfiguracion extends JFrame {
         pnlHeader.add(lblTitulo);
         add(pnlHeader, BorderLayout.NORTH);
 
-        // Panel principal con scroll
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setOpaque(false);
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 30, 20, 30));
+        // Panel principal de pestañas
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setBackground(new Color(45, 52, 71));
+        tabbedPane.setForeground(Color.WHITE);
+        tabbedPane.setOpaque(false);
+        tabbedPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // === SECCIÓN AFIP SDK ===
-        mainPanel.add(crearSeparador("CONFIGURACIÓN AFIP SDK"));
-
         JPanel pnlAfip = new JPanel(new GridBagLayout());
         pnlAfip.setOpaque(false);
+        pnlAfip.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -113,7 +113,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlCert.add(txtCertPath, BorderLayout.CENTER);
         JButton btnCert = new JButton("📂");
         btnCert.setPreferredSize(new Dimension(45, 30));
-        btnCert.addActionListener(e -> elegirArchivo(txtCertPath, "crt"));
+        btnCert.addActionListener(e -> elegirArchivoFichero(txtCertPath, "crt"));
         pnlCert.add(btnCert, BorderLayout.EAST);
         pnlAfip.add(pnlCert, gbc);
 
@@ -130,7 +130,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlKey.add(txtKeyPath, BorderLayout.CENTER);
         JButton btnKey = new JButton("📂");
         btnKey.setPreferredSize(new Dimension(45, 30));
-        btnKey.addActionListener(e -> elegirArchivo(txtKeyPath, "key"));
+        btnKey.addActionListener(e -> elegirArchivoFichero(txtKeyPath, "key"));
         pnlKey.add(btnKey, BorderLayout.EAST);
         pnlAfip.add(pnlKey, gbc);
 
@@ -145,14 +145,12 @@ public class VentanaConfiguracion extends JFrame {
         btnGuardarAfip.addActionListener(e -> guardarConfigAfip());
         pnlAfip.add(btnGuardarAfip, gbc);
 
-        mainPanel.add(pnlAfip);
-        mainPanel.add(Box.createVerticalStrut(25));
+        tabbedPane.addTab("AFIP", pnlAfip);
 
         // === SECCIÓN CREDENCIALES ===
-        mainPanel.add(crearSeparador("CAMBIAR CREDENCIALES DE ACCESO"));
-
         JPanel pnlCreds = new JPanel(new GridBagLayout());
         pnlCreds.setOpaque(false);
+        pnlCreds.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -219,13 +217,62 @@ public class VentanaConfiguracion extends JFrame {
         btnCambiarCreds.addActionListener(e -> cambiarCredenciales());
         pnlCreds.add(btnCambiarCreds, gbc);
 
-        mainPanel.add(pnlCreds);
+        tabbedPane.addTab("Credenciales", pnlCreds);
 
-        JScrollPane scroll = new JScrollPane(mainPanel);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        add(scroll, BorderLayout.CENTER);
+        // === SECCIÓN DIRECTORIOS ===
+        JPanel pnlDirectorios = new JPanel(new GridBagLayout());
+        pnlDirectorios.setOpaque(false);
+        pnlDirectorios.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 5, 5, 5);
+        gbc.weightx = 1.0;
+        gbc.gridx = 0;
+
+        gbc.gridy = 0;
+        pnlDirectorios.add(crearLabel("Carpeta para Boletas:"), gbc);
+        gbc.gridy = 1;
+        JPanel pnlBoletasDir = new JPanel(new BorderLayout(5, 0));
+        pnlBoletasDir.setOpaque(false);
+        txtRutaBoletas = new JTextField();
+        estilizarCampo(txtRutaBoletas);
+        txtRutaBoletas.setEditable(false);
+        pnlBoletasDir.add(txtRutaBoletas, BorderLayout.CENTER);
+        JButton btnBoletasDir = new JButton("📂");
+        btnBoletasDir.setPreferredSize(new Dimension(45, 30));
+        btnBoletasDir.addActionListener(e -> elegirDirectorio(txtRutaBoletas));
+        pnlBoletasDir.add(btnBoletasDir, BorderLayout.EAST);
+        pnlDirectorios.add(pnlBoletasDir, gbc);
+
+        gbc.gridy = 2;
+        pnlDirectorios.add(crearLabel("Carpeta para Presupuestos:"), gbc);
+        gbc.gridy = 3;
+        JPanel pnlPresupDir = new JPanel(new BorderLayout(5, 0));
+        pnlPresupDir.setOpaque(false);
+        txtRutaPresupuestos = new JTextField();
+        estilizarCampo(txtRutaPresupuestos);
+        txtRutaPresupuestos.setEditable(false);
+        pnlPresupDir.add(txtRutaPresupuestos, BorderLayout.CENTER);
+        JButton btnPresupDir = new JButton("📂");
+        btnPresupDir.setPreferredSize(new Dimension(45, 30));
+        btnPresupDir.addActionListener(e -> elegirDirectorio(txtRutaPresupuestos));
+        pnlPresupDir.add(btnPresupDir, BorderLayout.EAST);
+        pnlDirectorios.add(pnlPresupDir, gbc);
+
+        gbc.gridy = 4;
+        gbc.insets = new Insets(20, 5, 5, 5);
+        JButton btnGuardarRutas = new JButton("Guardar Rutas");
+        btnGuardarRutas.setBackground(new Color(155, 89, 182));
+        btnGuardarRutas.setForeground(Color.WHITE);
+        btnGuardarRutas.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnGuardarRutas.setFocusPainted(false);
+        btnGuardarRutas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnGuardarRutas.addActionListener(e -> guardarRutas());
+        pnlDirectorios.add(btnGuardarRutas, gbc);
+
+        tabbedPane.addTab("Directorios", pnlDirectorios);
+
+        add(tabbedPane, BorderLayout.CENTER);
     }
 
     private void cargarDatos() {

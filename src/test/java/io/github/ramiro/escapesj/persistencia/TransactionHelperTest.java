@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,6 +24,11 @@ public class TransactionHelperTest {
     private FacturacionService facturacionService;
 
     public TransactionHelperTest() {
+    }
+
+    @org.junit.jupiter.api.BeforeEach
+    public void setUp() throws Exception {
+        DatabaseService.inicializar();
     }
 
     @AfterEach
@@ -49,13 +55,13 @@ public class TransactionHelperTest {
     @Test
     public void testTransactionRollbacksOnError() throws Exception {
         conn = DatabaseService.getConnection();
-        boletaRepo = new BoletaRepository(conn);
-        productoRepo = new ProductoRepository(conn);
-        servicioRepo = new ServicioRepository(conn);
+        boletaRepo = new BoletaRepository();
+        productoRepo = new ProductoRepository();
+        servicioRepo = new ServicioRepository();
         facturacionService = new FacturacionService(boletaRepo, productoRepo, servicioRepo);
 
-        productoRepo.guardar(new Producto("TEST-001", "Producto de Prueba", "Test", 1000.0, 10));
-        productoRepo.guardar(new Producto("TEST-002", "Producto Sin Stock", "Test", 1000.0, 1)); // We will ask for 5
+        productoRepo.guardar(new Producto("TEST-001", "Producto de Prueba", "Test", BigDecimal.valueOf(1000.0), 10));
+        productoRepo.guardar(new Producto("TEST-002", "Producto Sin Stock", "Test", BigDecimal.valueOf(1000.0), 1)); // We will ask for 5
 
         int initialBoletas = countRows("SELECT COUNT(*) FROM boletas");
         int initialItems = countRows("SELECT COUNT(*) FROM boleta_items");
@@ -91,12 +97,12 @@ public class TransactionHelperTest {
     @Test
     public void testTransactionCommitsOnSuccess() throws Exception {
         conn = DatabaseService.getConnection();
-        boletaRepo = new BoletaRepository(conn);
-        productoRepo = new ProductoRepository(conn);
-        servicioRepo = new ServicioRepository(conn);
+        boletaRepo = new BoletaRepository();
+        productoRepo = new ProductoRepository();
+        servicioRepo = new ServicioRepository();
         facturacionService = new FacturacionService(boletaRepo, productoRepo, servicioRepo);
 
-        productoRepo.guardar(new Producto("TEST-001", "Producto de Prueba", "Test", 1000.0, 10));
+        productoRepo.guardar(new Producto("TEST-001", "Producto de Prueba", "Test", BigDecimal.valueOf(1000.0), 10));
 
         int initialBoletas = countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'");
         int initialItems = countRows("SELECT COUNT(*) FROM boleta_items WHERE descripcion = 'P1'");

@@ -36,7 +36,12 @@ public class BoletaRepository {
     }
 
     public int crearBoleta(String dni, String nombreCliente, String fecha, double total) {
-        return crearBoleta(this.conexion, dni, nombreCliente, fecha, total);
+        try (Connection conn = DatabaseService.getConnection()) {
+            return crearBoleta(conn, dni, nombreCliente, fecha, total);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
     }
 
     public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
@@ -50,7 +55,7 @@ public class BoletaRepository {
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, fecha);
-            pstmt.setBigDecimal(5, total);
+            pstmt.setBigDecimal(5, BigDecimal.valueOf(total));
             pstmt.executeUpdate();
             
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -59,13 +64,18 @@ public class BoletaRepository {
                 }
             }
         } catch (Exception e) {
-            logger.error("Error:", e);
+            e.printStackTrace();
+            throw new RuntimeException("Error creando boleta", e);
         }
         return -1;
     }
 
     public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
-        agregarItem(this.conexion, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+        try (Connection conn = DatabaseService.getConnection()) {
+            agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
@@ -79,18 +89,22 @@ public class BoletaRepository {
             pstmt.setString(3, descripcion);
             pstmt.setString(4, codigoProducto);
             pstmt.setInt(5, cantidad);
-            pstmt.setBigDecimal(6, precioUnitario);
-            pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
+            pstmt.setBigDecimal(6, BigDecimal.valueOf(precioUnitario));
+            pstmt.setBigDecimal(7, BigDecimal.valueOf(precioUnitario).multiply(BigDecimal.valueOf(cantidad)));
             pstmt.executeUpdate();
         } catch (Exception e) {
-            logger.error("Error:", e);
             e.printStackTrace();
             throw new RuntimeException("Error agregando item", e);
         }
     }
 
     public List<BoletaResumen> buscarBoletasPorDni(String dniBuscado) {
-        return buscarBoletasPorDni(this.conexion, dniBuscado);
+        try (Connection conn = DatabaseService.getConnection()) {
+            return buscarBoletasPorDni(conn, dniBuscado);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     public List<BoletaResumen> buscarBoletasPorDni(Connection txConn, String dniBuscado) {
@@ -118,7 +132,12 @@ public class BoletaRepository {
     }
 
     public List<BoletaItem> obtenerItems(int boletaId) {
-        return obtenerItems(this.conexion, boletaId);
+        try (Connection conn = DatabaseService.getConnection()) {
+            return obtenerItems(conn, boletaId);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     public List<BoletaItem> obtenerItems(Connection txConn, int boletaId) {

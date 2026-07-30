@@ -630,14 +630,15 @@ public class VentanaPrincipal extends JFrame {
         // Convert UI items to service DTO
         java.util.List<io.github.ramiro.escapesj.servicio.ItemFacturacion> itemsDto = itemsOrden.stream()
                 .map(item -> new io.github.ramiro.escapesj.servicio.ItemFacturacion(
-                        item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario()))
-                .toList();
+                        item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario().doubleValue()))
+                .collect(java.util.stream.Collectors.toList());
 
         io.github.ramiro.escapesj.servicio.FacturacionRequest request = new io.github.ramiro.escapesj.servicio.FacturacionRequest(
                 dni, nombre, fechaHoy, itemsDto, descuentoPct
         );
 
         io.github.ramiro.escapesj.servicio.FacturacionResult resultadoFacturacion;
+        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
 
         try {
             resultadoFacturacion = facturacionService.facturarOrden(request);
@@ -651,8 +652,10 @@ public class VentanaPrincipal extends JFrame {
 
         String carpetaPdf = configRepository.getRutaBoletas();
         try {
-            String rutaPdf = BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
-                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
+            String rutaPdf = io.github.ramiro.escapesj.servicio.BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
+                    resultadoFacturacion.items(), BigDecimal.valueOf(resultadoFacturacion.subtotal()), metodoPago, descuentoPct, carpetaPdf);
+
+            double descuentoMonto = resultadoFacturacion.subtotal() * (descuentoPct / 100.0);
 
             String resumen = "✅ Boleta #" + resultadoFacturacion.numero() + " generada correctamente.\n\n"
                     + "Subtotal: $" + String.format("%,.0f", resultadoFacturacion.subtotal()) + "\n";

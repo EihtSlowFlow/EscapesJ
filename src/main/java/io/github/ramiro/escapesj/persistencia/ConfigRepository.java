@@ -35,12 +35,11 @@ public class ConfigRepository {
     /**
      * Guarda o actualiza un valor de configuración.
      */
-    public void guardar(String clave, String valor) {
+    public void guardar(String clave, String valor) throws SQLException {
         if ("afip.access_token".equals(clave)) {
             valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
         }
         
-    public void guardar(String clave, String valor) throws SQLException {
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
         try (Connection connection = DatabaseService.getConnection();
@@ -48,8 +47,6 @@ public class ConfigRepository {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            logger.error("Error:", e);
         }
     }
 

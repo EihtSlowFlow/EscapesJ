@@ -5,33 +5,82 @@ import org.mindrot.jbcrypt.BCrypt;
 import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.Optional;
-import org.mindrot.jbcrypt.BCrypt;
 
 public class UsuarioRepository {
     private static final Logger logger = LoggerFactory.getLogger(UsuarioRepository.class);
-
 
     public UsuarioRepository() {
     }
 
     /**
+     * Comprueba si la tabla de usuarios está vacía.
+     */
+    public boolean isUsuariosEmpty() {
+        String sql = "SELECT COUNT(*) FROM usuarios";
+        try (Connection connection = DatabaseService.getConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1) == 0;
+            }
+        } catch (SQLException e) {
+            logger.error("Error comprobando usuarios: ", e);
+        }
+        return true;
+    }
+
+    /**
+     * Crea el usuario administrador inicial y lo marca para requerir cambio de contraseña.
+     */
+    public boolean crearAdminSetupInicial(String username, String tempPassword) {
+        String hash = BCrypt.hashpw(tempPassword, BCrypt.gensalt());
+        // Como el usuario elige su propia contraseña en el setup UI, no lo forzamos a cambiarla.
+        String sql = "INSERT INTO usuarios (usuario, password, debe_cambiar_password) VALUES (?, ?, 0)";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, username);
+            ps.setString(2, hash);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error creando admin inicial: ", e);
+            return false;
+        }
+    }
+
+    /**
+     * Valida si el usuario debe cambiar su contraseña obligatoriamente.
+     */
+    public boolean debeCambiarPassword(String usuario) {
+        String sql = "SELECT debe_cambiar_password FROM usuarios WHERE usuario = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, usuario);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("debe_cambiar_password") == 1;
+            }
+        } catch (SQLException e) {
+            logger.error("Error leyendo debe_cambiar_password: ", e);
+        }
+        return false;
+    }
+
+    /**
      * Valida las credenciales de un usuario de forma segura con BCrypt.
-     * Si detecta una contraseña antigua en texto plano que coincide, la encripta automáticamente.
      */
     public boolean validarCredenciales(String usuario, String password) {
         String sql = "SELECT password FROM usuarios WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, usuario);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 String dbHash = rs.getString("password");
                 
-                // Migración suave: Si la contraseña no está encriptada con BCrypt
+                // Migración suave
                 if (!dbHash.startsWith("$2a$")) {
                     if (dbHash.equals(password)) {
-                        // Coincide texto plano -> Encriptarla para el futuro
                         String nuevoHash = BCrypt.hashpw(password, BCrypt.gensalt());
                         cambiarPasswordDirecto(usuario, nuevoHash);
                         return true;
@@ -39,16 +88,12 @@ public class UsuarioRepository {
                     return false;
                 }
                 
-                // Validación BCrypt normal
                 return BCrypt.checkpw(password, dbHash);
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
-            return false;
         } catch (IllegalArgumentException e) {
-            // BCrypt throws IllegalArgumentException if the hash is invalid (e.g., from old plaintext passwords)
             logger.error("Hash de contraseña inválido para el usuario: " + usuario);
-            return false;
         }
         return false;
     }
@@ -57,25 +102,22 @@ public class UsuarioRepository {
      * Helper interno para guardar el hash directamente.
      */
     private void cambiarPasswordDirecto(String usuario, String hashNueva) {
-        String sql = "UPDATE usuarios SET password = ? WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, hashNueva);
-     * Cambia la contraseña de un usuario existente encriptándola con BCrypt.
-     */
-    public boolean cambiarPassword(String usuario, String passwordActual, String passwordNueva) {
-        if (!validarCredenciales(usuario, passwordActual)) {
-            return false;
-        }
-        
-        String hashNuevo = BCrypt.hashpw(passwordNueva, BCrypt.gensalt());
-        String sql = "UPDATE usuarios SET password = ? WHERE usuario = ?";
+        String sql = "UPDATE usuarios SET password = ?, debe_cambiar_password = 0 WHERE usuario = ?";
         try (Connection connection = DatabaseService.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, hashNuevo);
+            ps.setString(1, hashNueva);
             ps.setString(2, usuario);
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+        }
+    }
+
+    /**
+     * Cambia la contraseña de un usuario existente validando la actual.
+     */
+    public boolean cambiarPassword(String usuario, String passwordActual, String passwordNueva) {
+        if (!validarCredenciales(usuario, passwordActual)) {
             return false;
         }
         String hashNueva = BCrypt.hashpw(passwordNueva, BCrypt.gensalt());
@@ -112,7 +154,8 @@ public class UsuarioRepository {
      */
     public Optional<String> obtenerPreguntaSeguridad(String usuario) {
         String sql = "SELECT pregunta_seguridad FROM usuarios WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, usuario);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -135,7 +178,8 @@ public class UsuarioRepository {
         String respuestaHash = BCrypt.hashpw(respuestaNormalizada, BCrypt.gensalt());
         
         String sql = "UPDATE usuarios SET pregunta_seguridad = ?, respuesta_seguridad = ? WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, pregunta);
             ps.setString(2, respuestaHash);
             ps.setString(3, usuario);
@@ -151,7 +195,8 @@ public class UsuarioRepository {
      */
     public boolean validarRespuestaSeguridad(String usuario, String respuestaPlana) {
         String sql = "SELECT respuesta_seguridad FROM usuarios WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, usuario);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {

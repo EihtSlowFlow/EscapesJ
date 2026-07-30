@@ -108,7 +108,8 @@ public class ProductoRepository {
      */
     public boolean verificarStockDisponible(String codigo, int cantidad) {
         String sql = "SELECT stock FROM productos WHERE codigo = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, codigo);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -125,7 +126,11 @@ public class ProductoRepository {
      * Resta unidades del inventario al confirmar una venta.
      */
     public boolean intentarRestarStock(String codigo, int cantidad) {
-        return intentarRestarStock(this.connection, codigo, cantidad);
+        try (Connection connection = DatabaseService.getConnection()) {
+            return intentarRestarStock(connection, codigo, cantidad);
+        } catch (SQLException e) {
+            return false;
+        }
     }
 
     public boolean intentarRestarStock(Connection txConn, String codigo, int cantidad) {
@@ -136,6 +141,34 @@ public class ProductoRepository {
             ps.setInt(3, cantidad);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    public boolean actualizarStock(String codigo, int nuevoStock) {
+        String sql = "UPDATE productos SET stock = ? WHERE codigo = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, nuevoStock);
+            ps.setString(2, codigo);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Elimina un producto.
+     */
+    public boolean eliminarProducto(String codigo) {
+        String sql = "DELETE FROM productos WHERE codigo = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, codigo);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
             return false;
         }
     }

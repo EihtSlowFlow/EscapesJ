@@ -90,14 +90,15 @@ public class DatabaseService {
                 )
             """);
 
-            // Tabla Usuarios (Login configurable y recuperación)
+            // Tabla Usuarios (Autenticación)
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     usuario VARCHAR(50) NOT NULL UNIQUE,
-                    password VARCHAR(100) NOT NULL,
+                    password VARCHAR(255) NOT NULL,
                     pregunta_seguridad VARCHAR(255),
-                    respuesta_seguridad VARCHAR(100)
+                    respuesta_seguridad VARCHAR(100),
+                    debe_cambiar_password INTEGER DEFAULT 1
                 )
             """);
             // Migración para bases de datos existentes
@@ -106,6 +107,11 @@ public class DatabaseService {
                 stmt.execute("ALTER TABLE usuarios ADD COLUMN respuesta_seguridad VARCHAR(100)");
             } catch (Exception e) {
                 // Si la columna ya existe, SQLite tira un error que podemos ignorar en esta migración
+            }
+            try {
+                stmt.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER DEFAULT 1");
+            } catch (Exception e) {
+                // Ignorar si la columna ya existe
             }
 
             // Tabla Configuración (AFIP token, URL, etc.)
@@ -165,15 +171,10 @@ public class DatabaseService {
                 )
             """);
 
-            // Seed: usuario admin por defecto si la tabla está vacía
-            var rs = stmt.executeQuery("SELECT COUNT(*) FROM usuarios");
-            if (rs.next() && rs.getInt(1) == 0) {
-                String hash = org.mindrot.jbcrypt.BCrypt.hashpw("1234", org.mindrot.jbcrypt.BCrypt.gensalt());
-                stmt.execute("INSERT INTO usuarios (usuario, password) VALUES ('admin', '" + hash + "')");
-            }
+            // Seed: usuario admin por defecto si la tabla está vacía (ELIMINADO POR SEGURIDAD ISSUE #9)
 
             // Seed: configuración AFIP por defecto si no existe
-            rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion");
+            var rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion");
             if (rs.next() && rs.getInt(1) == 0) {
                 stmt.execute("INSERT INTO configuracion (clave, valor) VALUES ('afip.access_token', '')");
                 stmt.execute("INSERT INTO configuracion (clave, valor) VALUES ('afip.cuit', '20409378472')");

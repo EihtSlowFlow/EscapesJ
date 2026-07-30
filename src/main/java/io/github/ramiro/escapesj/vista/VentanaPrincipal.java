@@ -5,6 +5,7 @@ import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository;
+import io.github.ramiro.escapesj.persistencia.ConfigRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
@@ -28,6 +29,7 @@ public class VentanaPrincipal extends JFrame {
     private final ProductoRepository productoRepository;
     private final ServicioRepository servicioRepository;
     private final BoletaRepository boletaRepository;
+    private final ConfigRepository configRepository;
 
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion, txtMonto, txtDescuento;
@@ -47,12 +49,14 @@ public class VentanaPrincipal extends JFrame {
                              int cantidad, double precioUnitario, double subtotal) {}
 
     public VentanaPrincipal(AfipService afip, Inventario inv, ProductoRepository prodRepo,
-                            ServicioRepository servRepo, BoletaRepository boletaRepo) {
+                            ServicioRepository servRepo, BoletaRepository boletaRepo,
+                            ConfigRepository configRepo) {
         this.afipService = afip;
         this.inventario = inv;
         this.productoRepository = prodRepo;
         this.servicioRepository = servRepo;
         this.boletaRepository = boletaRepo;
+        this.configRepository = configRepo;
         initUI();
     }
 
@@ -646,7 +650,7 @@ public class VentanaPrincipal extends JFrame {
                 .map(b -> b.numero())
                 .findFirst().orElse(0);
 
-        String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
+        String carpetaPdf = configRepository.getRutaBoletas();
         try {
             String rutaPdf = BoletaPdfService.generarPdf(numeroBoleta, fechaHoy, dni, nombre,
                     items, subtotal, metodoPago, descuentoPct, carpetaPdf);

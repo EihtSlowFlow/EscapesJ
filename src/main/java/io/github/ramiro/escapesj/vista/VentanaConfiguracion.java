@@ -28,6 +28,7 @@ public class VentanaConfiguracion extends JFrame {
     private JPasswordField txtPasswordConfirmar;
     private JTextField txtPreguntaSeguridad;
     private JTextField txtRespuestaSeguridad;
+    private JTextField txtRutaBoletas, txtRutaPresupuestos;
 
     public VentanaConfiguracion(ConfigRepository configRepo, UsuarioRepository usuarioRepo) {
         this.configRepo = configRepo;
@@ -233,6 +234,47 @@ public class VentanaConfiguracion extends JFrame {
         chkProduction.setSelected(configRepo.isAfipProduction());
         txtCertPath.setText(configRepo.getAfipCertPath());
         txtKeyPath.setText(configRepo.getAfipKeyPath());
+        txtRutaBoletas.setText(configRepo.getRutaBoletas());
+        txtRutaPresupuestos.setText(configRepo.getRutaPresupuestos());
+
+        usuarioRepo.obtenerPreguntaSeguridad("admin").ifPresent(p -> txtPreguntaSeguridad.setText(p));
+    }
+
+    private void elegirArchivoFichero(JTextField campo, String extension) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            if (path.endsWith("." + extension)) {
+                campo.setText(path);
+            } else {
+                JOptionPane.showMessageDialog(this, "El archivo debe tener la extensión ." + extension);
+            }
+        }
+    }
+
+    private void elegirDirectorio(JTextField campo) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            if (!path.endsWith("/") && !path.endsWith("\\")) {
+                path += System.getProperty("file.separator");
+            }
+            campo.setText(path);
+        }
+    }
+
+    private void guardarRutas() {
+        String rutaBoletas = txtRutaBoletas.getText().trim();
+        String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
+
+        if (!rutaBoletas.isEmpty()) configRepo.guardar("ruta.boletas", rutaBoletas);
+        if (!rutaPresupuestos.isEmpty()) configRepo.guardar("ruta.presupuestos", rutaPresupuestos);
+
+        JOptionPane.showMessageDialog(this,
+                "Rutas actualizadas correctamente.",
+                "Configuración", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void guardarConfigAfip() {

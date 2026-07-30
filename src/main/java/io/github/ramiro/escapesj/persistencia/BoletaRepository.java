@@ -17,9 +17,9 @@ public class BoletaRepository {
     public record BoletaResumen(int id, int numero, String dni, String nombreCliente, String fecha, double total) {}
     public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario, double subtotal) {}
 
-    private int siguienteNumero() {
+    private int siguienteNumero(Connection txConn) {
         String sql = "SELECT MAX(numero) FROM boletas";
-        try (Statement stmt = conexion.createStatement();
+        try (Statement stmt = txConn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 int max = rs.getInt(1);
@@ -36,7 +36,7 @@ public class BoletaRepository {
     }
 
     public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
-        int numero = siguienteNumero();
+        int numero = siguienteNumero(txConn);
         String sql = """
                 INSERT INTO boletas (numero, dni, nombre_cliente, fecha, total)
                 VALUES (?, ?, ?, ?, ?)

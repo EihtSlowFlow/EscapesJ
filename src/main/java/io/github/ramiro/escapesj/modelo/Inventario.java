@@ -23,9 +23,4 @@ public class Inventario {
         return repository.verificarStockDisponible(codigo, cantidad);
     }
 
-    public void restaurarStock(String codigo, int cantidad) {
-        // Obsoleto si no se resta prematuramente, pero lo dejamos vacío
-        // o llamamos a sumarStock si hiciera falta.
-        // repository.sumarStock(codigo, cantidad);
-    }
 }

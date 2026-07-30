@@ -12,9 +12,12 @@ public class ServicioRepository {
     }
 
     public void registrar(ServicioRealizado s) {
+        registrar(this.connection, s);
+    }
+
+    public void registrar(Connection txConn, ServicioRealizado s) {
         String sql = "INSERT INTO servicios_historial (dni, nombre, trabajo, fecha) VALUES (?, ?, ?, ?)";
-        try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (PreparedStatement ps = txConn.prepareStatement(sql)) {
             ps.setString(1, s.getDni());
             ps.setString(2, s.getNombre());
             ps.setString(3, s.getTrabajo());
@@ -22,6 +25,7 @@ public class ServicioRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
+            throw new RuntimeException("Error registrando servicio", e);
         }
     }
 

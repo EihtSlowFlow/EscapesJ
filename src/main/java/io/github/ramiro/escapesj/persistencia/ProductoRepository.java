@@ -99,12 +99,33 @@ public class ProductoRepository {
     }
 
     /**
+     * Verifica si hay stock disponible sin descontarlo.
+     */
+    public boolean verificarStockDisponible(String codigo, int cantidad) {
+        String sql = "SELECT stock FROM productos WHERE codigo = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, codigo);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("stock") >= cantidad;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    /**
      * Resta unidades del inventario al confirmar una venta.
      */
     public boolean intentarRestarStock(String codigo, int cantidad) {
+        return intentarRestarStock(this.connection, codigo, cantidad);
+    }
+
+    public boolean intentarRestarStock(Connection txConn, String codigo, int cantidad) {
         String sql = "UPDATE productos SET stock = stock - ? WHERE codigo = ? AND stock >= ?";
-        try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (PreparedStatement ps = txConn.prepareStatement(sql)) {
             ps.setInt(1, cantidad);
             ps.setString(2, codigo);
             ps.setInt(3, cantidad);

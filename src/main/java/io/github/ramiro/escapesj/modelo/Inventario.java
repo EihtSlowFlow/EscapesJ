@@ -16,10 +16,11 @@ public class Inventario {
     }
 
     public boolean procesarVenta(String codigo, int cantidad) {
-        return repository.intentarRestarStock(codigo, cantidad);
+        return repository.verificarStockDisponible(codigo, cantidad);
     }
 
-    public void restaurarStock(String codigo, int cantidad) {
-        repository.sumarStock(codigo, cantidad);
+    public boolean verificarStockDisponible(String codigo, int cantidad) {
+        return repository.verificarStockDisponible(codigo, cantidad);
     }
+
 }

@@ -319,12 +319,19 @@ public class VentanaConfiguracion extends JFrame {
         String rutaBoletas = txtRutaBoletas.getText().trim();
         String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
 
-        if (!rutaBoletas.isEmpty()) configRepo.guardar("ruta.boletas", rutaBoletas);
-        if (!rutaPresupuestos.isEmpty()) configRepo.guardar("ruta.presupuestos", rutaPresupuestos);
+        try {
+            if (!rutaBoletas.isEmpty()) configRepo.guardar("ruta.boletas", rutaBoletas);
+            if (!rutaPresupuestos.isEmpty()) configRepo.guardar("ruta.presupuestos", rutaPresupuestos);
 
-        JOptionPane.showMessageDialog(this,
-                "Rutas actualizadas correctamente.",
-                "Configuración", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Rutas actualizadas correctamente.",
+                    "Configuración", JOptionPane.INFORMATION_MESSAGE);
+        } catch (java.sql.SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error al guardar las rutas en la base de datos:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
     }
 
     private void guardarConfigAfip() {
@@ -359,11 +366,19 @@ public class VentanaConfiguracion extends JFrame {
         }
 
         // Guardar en DB
-        configRepo.guardar("afip.access_token", token);
-        configRepo.guardar("afip.cuit", cuit);
-        configRepo.guardar("afip.production", produccion ? "true" : "false");
-        configRepo.guardar("afip.cert_path", certPath);
-        configRepo.guardar("afip.key_path", keyPath);
+        try {
+            configRepo.guardar("afip.access_token", token);
+            configRepo.guardar("afip.cuit", cuit);
+            configRepo.guardar("afip.production", produccion ? "true" : "false");
+            configRepo.guardar("afip.cert_path", certPath);
+            configRepo.guardar("afip.key_path", keyPath);
+        } catch (java.sql.SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error al guardar la configuración de AFIP en la base de datos:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            return;
+        }
 
         // Testear conexión en segundo plano
         JDialog dlgEspera = new JDialog(this, "Verificando...", true);

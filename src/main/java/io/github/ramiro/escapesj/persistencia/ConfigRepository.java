@@ -31,15 +31,13 @@ public class ConfigRepository {
     /**
      * Guarda o actualiza un valor de configuración.
      */
-    public void guardar(String clave, String valor) {
+    public void guardar(String clave, String valor) throws SQLException {
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
     }
 

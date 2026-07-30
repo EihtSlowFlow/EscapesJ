@@ -31,6 +31,7 @@ public class VentanaPresupuesto extends JFrame {
     private final AfipService afipService;
     private final PresupuestoRepository presupuestoRepo;
     private final ProductoRepository productoRepo;
+    private final io.github.ramiro.escapesj.persistencia.ConfigRepository configRepository;
 
     private JTextField txtDni, txtNombre, txtDescripcion, txtMonto, txtCodProducto, txtCantidad;
     private JDateChooser dateChooserLimite;
@@ -46,10 +47,12 @@ public class VentanaPresupuesto extends JFrame {
     private BigDecimal precioProductoSel = BigDecimal.ZERO;
 
     public VentanaPresupuesto(AfipService afipService, PresupuestoRepository presupuestoRepo,
-                               ProductoRepository productoRepo) {
+                               ProductoRepository productoRepo,
+                               io.github.ramiro.escapesj.persistencia.ConfigRepository configRepo) {
         this.afipService = afipService;
         this.presupuestoRepo = presupuestoRepo;
         this.productoRepo = productoRepo;
+        this.configRepository = configRepo;
         initUI();
     }
 
@@ -520,7 +523,7 @@ public class VentanaPresupuesto extends JFrame {
             return;
         }
 
-        String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/";
+        String carpetaPdf = configRepository.getRutaPresupuestos();
         try {
             String rutaPdf = PresupuestoPdfService.generarPdf(
                     codigo, fechaHoy, fechaLimiteISO,

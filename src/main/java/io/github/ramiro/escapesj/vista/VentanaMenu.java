@@ -67,8 +67,8 @@ public class VentanaMenu extends JFrame {
         JButton btnServ = crearBotonMenu("Gestionar Servicios (Historial)", new Color(46, 204, 113));
         JButton btnConfig = crearBotonMenu("⚙  Configuración", new Color(149, 165, 166));
 
-        btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo).setVisible(true));
-        btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo).setVisible(true));
+        btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo, configRepo).setVisible(true));
+        btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo, configRepo).setVisible(true));
         btnInv.addActionListener(e -> new VentanaGestionInventario(prodRepo).setVisible(true));
         btnServ.addActionListener(e -> new VentanaGestionServicios(servRepo, boletaRepo).setVisible(true));
         btnConfig.addActionListener(e -> new VentanaConfiguracion(configRepo, usuarioRepo).setVisible(true));

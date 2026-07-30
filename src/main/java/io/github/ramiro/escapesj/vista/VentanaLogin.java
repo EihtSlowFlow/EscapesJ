@@ -91,8 +91,21 @@ public class VentanaLogin extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
+        gbc.insets = new Insets(20, 10, 5, 10);
         pnlForm.add(btnIngresar, gbc);
+
+        // Link "Olvidaste tu contraseña?"
+        JButton btnOlvide = new JButton("¿Olvidaste tu contraseña?");
+        btnOlvide.setContentAreaFilled(false);
+        btnOlvide.setBorderPainted(false);
+        btnOlvide.setForeground(new Color(150, 150, 150));
+        btnOlvide.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        btnOlvide.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnOlvide.addActionListener(e -> new VentanaRecuperacion(VentanaLogin.this, usuarioRepo).setVisible(true));
+        
+        gbc.gridy = 3;
+        gbc.insets = new Insets(0, 10, 10, 10);
+        pnlForm.add(btnOlvide, gbc);
 
         add(pnlForm, BorderLayout.CENTER);
 

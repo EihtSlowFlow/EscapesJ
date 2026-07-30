@@ -5,6 +5,7 @@ import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository;
+import io.github.ramiro.escapesj.persistencia.ConfigRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
@@ -29,7 +30,7 @@ public class VentanaPrincipal extends JFrame {
     private final ProductoRepository productoRepository;
     private final ServicioRepository servicioRepository;
     private final BoletaRepository boletaRepository;
-    private final io.github.ramiro.escapesj.servicio.FacturacionService facturacionService;
+    private final ConfigRepository configRepository;
 
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion, txtMonto, txtDescuento;
@@ -49,13 +50,14 @@ public class VentanaPrincipal extends JFrame {
                              int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     public VentanaPrincipal(AfipService afip, Inventario inv, ProductoRepository prodRepo,
-                            ServicioRepository servRepo, BoletaRepository boletaRepo) {
+                            ServicioRepository servRepo, BoletaRepository boletaRepo,
+                            ConfigRepository configRepo) {
         this.afipService = afip;
         this.inventario = inv;
         this.productoRepository = prodRepo;
         this.servicioRepository = servRepo;
         this.boletaRepository = boletaRepo;
-        this.facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepo, prodRepo, servRepo);
+        this.configRepository = configRepo;
         initUI();
     }
 
@@ -645,9 +647,7 @@ public class VentanaPrincipal extends JFrame {
             return; // Detener flujo, no limpiar el formulario ni generar PDF
         }
 
-        double descuentoMonto = resultadoFacturacion.subtotal() * (descuentoPct / 100.0);
-        String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
-
+        String carpetaPdf = configRepository.getRutaBoletas();
         try {
             String rutaPdf = BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
                     resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);

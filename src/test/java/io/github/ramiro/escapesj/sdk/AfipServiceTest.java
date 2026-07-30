@@ -33,6 +33,8 @@ public class AfipServiceTest {
 
         cacheRepo = new ClienteCacheRepository() {
             @Override
+            public int limpiarExpirados() { return 0; }
+            @Override
             public void guardar(String dni, String nombre, String cuit, String prefijoCuit) {}
             @Override
             public Optional<EntradaCache> buscarPorDni(String dni) {
@@ -88,5 +90,21 @@ public class AfipServiceTest {
         String nombre = (String) nombreField.get(resultado.get());
         
         assertEquals("Perez Juan", nombre);
+    }
+
+    @Test
+    public void testHttpClientEsReutilizadoPorInstancia() throws Exception {
+        Field httpClient = AfipService.class.getDeclaredField("httpClient");
+        assertFalse(java.lang.reflect.Modifier.isStatic(httpClient.getModifiers()));
+
+        httpClient.setAccessible(true);
+        assertSame(httpClient.get(afipService), httpClient.get(afipService));
+    }
+
+    @Test
+    public void testBuscarSoloEnCacheAsync_CacheHit() throws Exception {
+        Optional<Cliente> resultado = afipService.buscarSoloEnCacheAsync("40937847")
+                .get(2, TimeUnit.SECONDS);
+        assertTrue(resultado.isPresent());
     }
 }

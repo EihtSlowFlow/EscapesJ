@@ -367,22 +367,24 @@ public class VentanaPrincipal extends JFrame {
             public void changedUpdate(DocumentEvent e) { resetearNombreSiCambio(); }
         });
 
-        // Auto-lookup al salir del campo DNI: si ya está en cache, mostrar nombre al instante
-        // Usa buscarSoloEnCache (solo SQLite local, SIN llamadas HTTP a AFIP)
+        // Auto-lookup al salir del campo DNI, sin bloquear el EDT con SQLite.
         txtDni.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
                 String dni = txtDni.getText().trim();
                 if (dni.matches("\\d{7,8}") && esTextoDeEstado(txtNombre.getText())) {
-                    afipService.buscarSoloEnCache(dni).ifPresent(cliente -> {
-                        cliente.presentarseEn(new ClienteRepresentador() {
-                            public void definirDni(String d) {} // No tocar el DNI
-                            public void definirNombre(String nombre) {
-                                txtNombre.setText(nombre);
-                                txtNombre.setForeground(Color.WHITE);
-                            }
-                        });
-                    });
+                    afipService.buscarSoloEnCacheAsync(dni)
+                            .thenAcceptAsync(resultado -> resultado.ifPresent(cliente ->
+                                    cliente.presentarseEn(new ClienteRepresentador() {
+                                        public void definirDni(String d) {} // No tocar el DNI
+                                        public void definirNombre(String nombre) {
+                                            // No pisar una edición o búsqueda iniciada tras perder el foco.
+                                            if (dni.equals(txtDni.getText().trim()) && esTextoDeEstado(txtNombre.getText())) {
+                                                txtNombre.setText(nombre);
+                                                txtNombre.setForeground(Color.WHITE);
+                                            }
+                                        }
+                                    })), SwingUtilities::invokeLater);
                 }
             }
         });

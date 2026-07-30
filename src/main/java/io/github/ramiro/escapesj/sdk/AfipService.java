@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -45,8 +46,8 @@ public class AfipService {
     private final ConfigRepository configRepo;
     private final ClienteCacheRepository cacheRepo;
 
-    // Cliente HTTP reutilizado para todas las peticiones
-    private static final HttpClient httpClient = HttpClient.newBuilder()
+    /** Cliente HTTP reutilizado por esta instancia en todas las peticiones. */
+    private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
 
@@ -109,11 +110,22 @@ public class AfipService {
 
     /**
      * Busca SOLO en cache local (sin llamar a AFIP).
-     * Seguro para llamar desde el hilo de UI sin bloquear.
+     *
+     * @deprecated la consulta SQLite puede bloquear; la UI debe usar
+     *             {@link #buscarSoloEnCacheAsync(String)}.
      */
+    @Deprecated(forRemoval = false)
     public Optional<Cliente> buscarSoloEnCache(String dni) {
         if (dni == null || dni.isBlank()) return Optional.empty();
         return buscarEnCache(dni);
+    }
+
+    /** Busca en el cache SQLite fuera del EDT, sin efectuar llamadas HTTP. */
+    public CompletableFuture<Optional<Cliente>> buscarSoloEnCacheAsync(String dni) {
+        if (dni == null || dni.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return CompletableFuture.supplyAsync(() -> buscarEnCache(dni));
     }
 
     /**
@@ -125,21 +137,21 @@ public class AfipService {
             return CompletableFuture.completedFuture(Optional.empty());
         }
 
-        // 1. Intentar desde cache (síncrono y rápido, base de datos local embebida)
-        Optional<Cliente> desdeCache = buscarEnCache(dni);
-        if (desdeCache.isPresent()) {
-            logger.info("AFIP Cache HIT para DNI: " + dni);
-            return CompletableFuture.completedFuture(desdeCache);
-        }
+        // SQLite también es E/S: hacerlo fuera del EDT antes de encadenar HTTP.
+        return buscarSoloEnCacheAsync(dni).thenCompose(desdeCache -> {
+            if (desdeCache.isPresent()) {
+                logger.info("AFIP Cache HIT para DNI: " + dni);
+                return CompletableFuture.completedFuture(desdeCache);
+            }
 
-        // 2. Si no hay cache, consultar la API (requiere configuración)
-        if (!estaConfigurado()) {
-            logger.info("AFIP no configurado. Sin cache para DNI: " + dni);
-            return CompletableFuture.completedFuture(Optional.empty());
-        }
+            if (!estaConfigurado()) {
+                logger.info("AFIP no configurado. Sin cache para DNI: " + dni);
+                return CompletableFuture.completedFuture(Optional.empty());
+            }
 
-        logger.info("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
-        return consultarApiYCachearAsync(dni);
+            logger.info("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
+            return consultarApiYCachearAsync(dni);
+        });
     }
 
     // ================================================================
@@ -182,26 +194,44 @@ public class AfipService {
                 return CompletableFuture.completedFuture(false);
             }
 
-            try {
-                // RIESGO MITIGADO: Se cargan temporalmente pero el scope es cortísimo y la memoria se libera al enviar JSON.
-                // En futuras iteraciones se podría considerar conectarse a WSAA directo sin AfipSDK.
-                String certContent = Files.readString(Path.of(certPath), StandardCharsets.UTF_8);
-                String keyContent = Files.readString(Path.of(keyPath), StandardCharsets.UTF_8);
-                
-                authBody.addProperty("cert", certContent);
-                authBody.addProperty("key", keyContent);
-                
-                certContent = null;
-                keyContent = null;
-            } catch (IOException e) {
-                logger.error("AFIP Auth: Error leyendo cert/key: " + e.getMessage());
+            Path certFile = Path.of(certPath);
+            Path keyFile = Path.of(keyPath);
+            if (!Files.isRegularFile(certFile) || !Files.isReadable(certFile)
+                    || !Files.isRegularFile(keyFile) || !Files.isReadable(keyFile)) {
+                logger.error("AFIP Auth: Se requieren permisos de lectura para los archivos de certificado y clave.");
                 return CompletableFuture.completedFuture(false);
+            }
+
+            /*
+             * Afip SDK exige el contenido PEM en este endpoint. Se lee únicamente para
+             * serializar esta solicitud y se borra el buffer de origen inmediatamente.
+             * Java no permite borrar de forma fiable las copias String/JSON creadas por
+             * la serialización; por eso las rutas deben apuntar a archivos con permisos
+             * de lectura restringidos al usuario de la aplicación.
+             */
+            byte[] certBytes = null;
+            byte[] keyBytes = null;
+            try {
+                certBytes = Files.readAllBytes(certFile);
+                keyBytes = Files.readAllBytes(keyFile);
+                authBody.addProperty("cert", new String(certBytes, StandardCharsets.UTF_8));
+                authBody.addProperty("key", new String(keyBytes, StandardCharsets.UTF_8));
+            } catch (IOException | SecurityException e) {
+                logger.error("AFIP Auth: No se pudieron leer el certificado o la clave.", e);
+                return CompletableFuture.completedFuture(false);
+            } finally {
+                if (certBytes != null) Arrays.fill(certBytes, (byte) 0);
+                if (keyBytes != null) Arrays.fill(keyBytes, (byte) 0);
             }
         }
 
         logger.info("AFIP Auth → POST " + AFIP_SDK_AUTH_URL + " [" + environment + "]");
 
-        return httpPostAsync(AFIP_SDK_AUTH_URL, authBody, 2).thenApply(responseBody -> {
+        CompletableFuture<String> authResponse = httpPostAsync(AFIP_SDK_AUTH_URL, authBody, 2);
+        // httpPostAsync ya serializó el cuerpo; soltar las referencias del árbol JSON antes de esperar la red.
+        authBody.remove("cert");
+        authBody.remove("key");
+        return authResponse.thenApply(responseBody -> {
             if (responseBody == null) return false;
 
             JsonObject resp = gson.fromJson(responseBody, JsonObject.class);

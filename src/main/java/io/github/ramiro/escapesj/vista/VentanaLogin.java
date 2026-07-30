@@ -102,7 +102,7 @@ public class VentanaLogin extends JFrame {
         btnOlvide.setFont(new Font("SansSerif", Font.PLAIN, 12));
         btnOlvide.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnOlvide.addActionListener(e -> new VentanaRecuperacion(VentanaLogin.this, usuarioRepo).setVisible(true));
-        
+
         gbc.gridy = 3;
         gbc.insets = new Insets(0, 10, 10, 10);
         pnlForm.add(btnOlvide, gbc);

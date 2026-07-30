@@ -77,7 +77,7 @@ public class UsuarioRepository {
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 String dbHash = rs.getString("password");
-                
+
                 // Migración suave
                 if (!dbHash.startsWith("$2a$")) {
                     if (dbHash.equals(password)) {
@@ -87,7 +87,7 @@ public class UsuarioRepository {
                     }
                     return false;
                 }
-                
+
                 return BCrypt.checkpw(password, dbHash);
             }
         } catch (SQLException e) {
@@ -176,7 +176,7 @@ public class UsuarioRepository {
     public boolean configurarPreguntaSeguridad(String usuario, String pregunta, String respuestaPlana) {
         String respuestaNormalizada = respuestaPlana.trim().toLowerCase();
         String respuestaHash = BCrypt.hashpw(respuestaNormalizada, BCrypt.gensalt());
-        
+
         String sql = "UPDATE usuarios SET pregunta_seguridad = ?, respuesta_seguridad = ? WHERE usuario = ?";
         try (Connection connection = DatabaseService.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {

@@ -57,7 +57,7 @@ public class BoletaRepository {
             pstmt.setString(4, fecha);
             pstmt.setBigDecimal(5, BigDecimal.valueOf(total));
             pstmt.executeUpdate();
-            
+
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     return rs.getInt(1);

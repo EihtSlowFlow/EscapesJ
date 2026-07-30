@@ -39,7 +39,7 @@ public class ConfigRepository {
         if ("afip.access_token".equals(clave)) {
             valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
         }
-        
+
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
         try (Connection connection = DatabaseService.getConnection();

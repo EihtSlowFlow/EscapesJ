@@ -82,7 +82,7 @@ public class TransactionHelperTest {
         assertTrue(exception.getMessage().contains("Stock insuficiente para el producto: P2"));
 
         // Verify that the rollback was successful across all 4 tables
-        
+
         // 1. Check stock is back to 10 for TEST-001
         var productoOpt = productoRepo.buscarPorCodigo("TEST-001");
         assertTrue(productoOpt.isPresent());
@@ -119,7 +119,7 @@ public class TransactionHelperTest {
 
         // Verify that the commit was successful
         assertTrue(result.boletaId() > 0);
-        
+
         // 1. Check stock is now 5
         var productoOpt = productoRepo.buscarPorCodigo("TEST-001");
         assertTrue(productoOpt.isPresent());

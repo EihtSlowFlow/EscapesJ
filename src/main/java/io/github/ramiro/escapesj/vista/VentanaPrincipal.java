@@ -481,10 +481,10 @@ public class VentanaPrincipal extends JFrame {
                 if (resultado.isPresent()) {
                     final String[] nombre = {null};
                     resultado.get().presentarseEn(new ClienteRepresentador() {
-                        public void definirDni(String cuit) {} 
+                        public void definirDni(String cuit) {}
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    
+
                     if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dniIngresado);
                         txtNombre.setText(nombre[0]);
@@ -495,7 +495,7 @@ public class VentanaPrincipal extends JFrame {
                         return;
                     }
                 }
-                
+
                 txtDni.setText(dniIngresado);
                 txtNombre.setText("");
                 txtNombre.setForeground(Color.WHITE);

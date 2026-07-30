@@ -8,6 +8,8 @@ import io.github.ramiro.escapesj.modelo.Cliente;
 import io.github.ramiro.escapesj.modelo.Cuit;
 import io.github.ramiro.escapesj.persistencia.ClienteCacheRepository;
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -19,7 +21,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Servicio de consulta al padrón de AFIP usando la REST API de Afip SDK.
@@ -32,6 +36,8 @@ import java.util.Optional;
  */
 public class AfipService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AfipService.class);
+
     private static final String AFIP_SDK_AUTH_URL = "https://app.afipsdk.com/api/v1/afip/auth";
     private static final String AFIP_SDK_API_URL = "https://app.afipsdk.com/api/v1/afip/requests";
     private static final String WSID = "ws_sr_padron_a13";
@@ -39,6 +45,11 @@ public class AfipService {
 
     private final ConfigRepository configRepo;
     private final ClienteCacheRepository cacheRepo;
+
+    /** Cliente HTTP reutilizado por esta instancia en todas las peticiones. */
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
 
     // Cache del Ticket de Acceso (token + sign) para no pedirlo en cada consulta
     private String wsaaToken;
@@ -52,7 +63,7 @@ public class AfipService {
         // Limpiar entradas expiradas al iniciar el servicio
         int limpiados = cacheRepo.limpiarExpirados();
         if (limpiados > 0) {
-            System.out.println("Cache AFIP: Se limpiaron " + limpiados + " entradas expiradas.");
+            logger.info("Cache AFIP: Se limpiaron " + limpiados + " entradas expiradas.");
         }
     }
 
@@ -86,32 +97,6 @@ public class AfipService {
     }
 
     /**
-     * Busca un cliente por DNI.
-     * Primero consulta el cache local; si no encuentra, va a la API de AFIP.
-     */
-    public Optional<Cliente> buscarClientePorDni(String dni) {
-        if (dni == null || dni.isBlank() || !dni.matches("\\d+")) {
-            return Optional.empty();
-        }
-
-        // 1. Intentar desde cache
-        Optional<Cliente> desdeCache = buscarEnCache(dni);
-        if (desdeCache.isPresent()) {
-            System.out.println("AFIP Cache HIT para DNI: " + dni);
-            return desdeCache;
-        }
-
-        // 2. Si no hay cache, consultar la API (requiere configuración)
-        if (!estaConfigurado()) {
-            System.out.println("AFIP no configurado. Sin cache para DNI: " + dni);
-            return Optional.empty();
-        }
-
-        System.out.println("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
-        return consultarApiYCachear(dni);
-    }
-
-    /**
      * Busca en el cache local de SQLite.
      */
     private Optional<Cliente> buscarEnCache(String dni) {
@@ -125,39 +110,71 @@ public class AfipService {
 
     /**
      * Busca SOLO en cache local (sin llamar a AFIP).
-     * Seguro para llamar desde el hilo de UI sin bloquear.
+     *
+     * @deprecated la consulta SQLite puede bloquear; la UI debe usar
+     *             {@link #buscarSoloEnCacheAsync(String)}.
      */
+    @Deprecated(forRemoval = false)
     public Optional<Cliente> buscarSoloEnCache(String dni) {
         if (dni == null || dni.isBlank()) return Optional.empty();
         return buscarEnCache(dni);
     }
 
-    // ================================================================
-    //  FLUJO DE AUTENTICACIÓN + CONSULTA
-    // ================================================================
+    /** Busca en el cache SQLite fuera del EDT, sin efectuar llamadas HTTP. */
+    public CompletableFuture<Optional<Cliente>> buscarSoloEnCacheAsync(String dni) {
+        if (dni == null || dni.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return CompletableFuture.supplyAsync(() -> buscarEnCache(dni));
+    }
 
     /**
-     * Obtiene el ambiente correcto. El CUIT de testing solo funciona en "dev".
+     * Búsqueda asíncrona (no bloqueante) utilizable por la UI de Swing.
+     * Encadena llamadas HTTP asíncronas internamente sin bloquear hilos.
      */
+    public CompletableFuture<Optional<Cliente>> buscarClientePorDniAsync(String dni) {
+        if (dni == null || dni.isBlank() || !dni.matches("\\d+")) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+
+        // SQLite también es E/S: hacerlo fuera del EDT antes de encadenar HTTP.
+        return buscarSoloEnCacheAsync(dni).thenCompose(desdeCache -> {
+            if (desdeCache.isPresent()) {
+                logger.info("AFIP Cache HIT para DNI: " + dni);
+                return CompletableFuture.completedFuture(desdeCache);
+            }
+
+            if (!estaConfigurado()) {
+                logger.info("AFIP no configurado. Sin cache para DNI: " + dni);
+                return CompletableFuture.completedFuture(Optional.empty());
+            }
+
+            logger.info("AFIP Cache MISS para DNI: " + dni + " — Consultando REST API de Afip SDK...");
+            return consultarApiYCachearAsync(dni);
+        });
+    }
+
+    // ================================================================
+    //  FLUJO DE AUTENTICACIÓN + CONSULTA (ASYNC)
+    // ================================================================
+
     private String getEnvironment() {
         String cuit = configRepo.getAfipCuit();
         boolean esTestCuit = "20409378472".equals(cuit);
         if (esTestCuit && configRepo.isAfipProduction()) {
-            System.out.println("AFIP: CUIT de testing detectado, forzando ambiente 'dev'.");
+            logger.info("AFIP: CUIT de testing detectado, forzando ambiente 'dev'.");
         }
         return (configRepo.isAfipProduction() && !esTestCuit) ? "prod" : "dev";
     }
 
     /**
-     * Paso 1: Obtiene el Ticket de Acceso (token + sign) del WSAA via Afip SDK.
-     * El resultado se cachea en memoria hasta que expire (~12 horas).
+     * Paso 1: Obtiene el Ticket de Acceso de forma asíncrona.
      */
-    private boolean autenticar() throws IOException {
-        // Si ya tenemos un ticket vigente, reutilizarlo
+    private CompletableFuture<Boolean> autenticarAsync() {
         if (wsaaToken != null && wsaaSign != null && wsaaExpiration != null
                 && Instant.now().isBefore(wsaaExpiration)) {
-            System.out.println("AFIP Auth: Reutilizando Ticket de Acceso vigente.");
-            return true;
+            logger.info("AFIP Auth: Reutilizando Ticket de Acceso vigente.");
+            return CompletableFuture.completedFuture(true);
         }
 
         String environment = getEnvironment();
@@ -168,81 +185,98 @@ public class AfipService {
         authBody.addProperty("tax_id", cuit);
         authBody.addProperty("wsid", WSID);
 
-        // En producción, incluir cert y key en el request
         if ("prod".equals(environment)) {
             String certPath = configRepo.getAfipCertPath();
             String keyPath = configRepo.getAfipKeyPath();
 
             if (certPath.isBlank() || keyPath.isBlank()) {
-                System.err.println("AFIP Auth: Modo producción requiere cert y key. Configurá las rutas en ⚙ Configuración.");
-                return false;
+                logger.error("AFIP Auth: Modo producción requiere cert y key.");
+                return CompletableFuture.completedFuture(false);
             }
 
+            Path certFile = Path.of(certPath);
+            Path keyFile = Path.of(keyPath);
+            if (!Files.isRegularFile(certFile) || !Files.isReadable(certFile)
+                    || !Files.isRegularFile(keyFile) || !Files.isReadable(keyFile)) {
+                logger.error("AFIP Auth: Se requieren permisos de lectura para los archivos de certificado y clave.");
+                return CompletableFuture.completedFuture(false);
+            }
+
+            /*
+             * Afip SDK exige el contenido PEM en este endpoint. Se lee únicamente para
+             * serializar esta solicitud y se borra el buffer de origen inmediatamente.
+             * Java no permite borrar de forma fiable las copias String/JSON creadas por
+             * la serialización; por eso las rutas deben apuntar a archivos con permisos
+             * de lectura restringidos al usuario de la aplicación.
+             */
+            byte[] certBytes = null;
+            byte[] keyBytes = null;
             try {
-                String certContent = Files.readString(Path.of(certPath), StandardCharsets.UTF_8);
-                String keyContent = Files.readString(Path.of(keyPath), StandardCharsets.UTF_8);
-                authBody.addProperty("cert", certContent);
-                authBody.addProperty("key", keyContent);
-                System.out.println("AFIP Auth: Cert y Key cargados desde archivos locales.");
-            } catch (IOException e) {
-                System.err.println("AFIP Auth: Error leyendo cert/key: " + e.getMessage());
-                return false;
+                certBytes = Files.readAllBytes(certFile);
+                keyBytes = Files.readAllBytes(keyFile);
+                authBody.addProperty("cert", new String(certBytes, StandardCharsets.UTF_8));
+                authBody.addProperty("key", new String(keyBytes, StandardCharsets.UTF_8));
+            } catch (IOException | SecurityException e) {
+                logger.error("AFIP Auth: No se pudieron leer el certificado o la clave.", e);
+                return CompletableFuture.completedFuture(false);
+            } finally {
+                if (certBytes != null) Arrays.fill(certBytes, (byte) 0);
+                if (keyBytes != null) Arrays.fill(keyBytes, (byte) 0);
             }
         }
 
-        System.out.println("AFIP Auth → POST " + AFIP_SDK_AUTH_URL + " [" + environment + "]");
+        logger.info("AFIP Auth → POST " + AFIP_SDK_AUTH_URL + " [" + environment + "]");
 
-        String responseBody = httpPost(AFIP_SDK_AUTH_URL, authBody);
-        if (responseBody == null) {
-            return false;
-        }
+        CompletableFuture<String> authResponse = httpPostAsync(AFIP_SDK_AUTH_URL, authBody, 2);
+        // httpPostAsync ya serializó el cuerpo; soltar las referencias del árbol JSON antes de esperar la red.
+        authBody.remove("cert");
+        authBody.remove("key");
+        return authResponse.thenApply(responseBody -> {
+            if (responseBody == null) return false;
 
-        JsonObject resp = gson.fromJson(responseBody, JsonObject.class);
+            JsonObject resp = gson.fromJson(responseBody, JsonObject.class);
+            if (resp.has("token") && resp.has("sign")) {
+                wsaaToken = resp.get("token").getAsString();
+                wsaaSign = resp.get("sign").getAsString();
 
-        if (resp.has("token") && resp.has("sign")) {
-            wsaaToken = resp.get("token").getAsString();
-            wsaaSign = resp.get("sign").getAsString();
-
-            // Parsear la expiración, con margen de 30 minutos
-            if (resp.has("expiration")) {
-                try {
-                    wsaaExpiration = Instant.parse(resp.get("expiration").getAsString())
-                            .minusSeconds(1800);
-                } catch (Exception e) {
-                    wsaaExpiration = Instant.now().plusSeconds(3600 * 10); // 10 horas por defecto
+                if (resp.has("expiration")) {
+                    try {
+                        wsaaExpiration = Instant.parse(resp.get("expiration").getAsString()).minusSeconds(1800);
+                    } catch (Exception e) {
+                        wsaaExpiration = Instant.now().plusSeconds(3600 * 10);
+                    }
+                } else {
+                    wsaaExpiration = Instant.now().plusSeconds(3600 * 10);
                 }
-            } else {
-                wsaaExpiration = Instant.now().plusSeconds(3600 * 10);
+
+                logger.info("AFIP Auth ← OK. Token obtenido. Expira: " + wsaaExpiration);
+                return true;
             }
 
-            System.out.println("AFIP Auth ← OK. Token obtenido. Expira: " + wsaaExpiration);
-            return true;
-        }
-
-        System.err.println("AFIP Auth ← Error: No se recibió token/sign. Respuesta: " + responseBody);
-        return false;
+            logger.error("AFIP Auth ← Error: No se recibió token/sign. Respuesta: " + responseBody);
+            return false;
+        });
     }
 
     /**
-     * Flujo completo: Autenticar → Buscar CUIT por DNI → Buscar datos por CUIT → Cachear
+     * Flujo completo encadenado asíncrono.
      */
-    private Optional<Cliente> consultarApiYCachear(String dni) {
-        try {
-            // Paso 0: Autenticar con WSAA
-            if (!autenticar()) {
-                System.err.println("AFIP: No se pudo autenticar con el WSAA. Verificá el Access Token.");
-                return Optional.empty();
+    private CompletableFuture<Optional<Cliente>> consultarApiYCachearAsync(String dni) {
+        return autenticarAsync().thenCompose(authOk -> {
+            if (!authOk) {
+                logger.error("AFIP: No se pudo autenticar con el WSAA.");
+                return CompletableFuture.completedFuture(Optional.<Cliente>empty());
             }
 
             String environment = getEnvironment();
             String cuitRepresentada = configRepo.getAfipCuit();
             long dniLong = Long.parseLong(dni);
 
-            // Paso 1: Obtener CUIT desde DNI
             JsonObject reqCuit = new JsonObject();
             reqCuit.addProperty("environment", environment);
             reqCuit.addProperty("method", "getIdPersonaListByDocumento");
             reqCuit.addProperty("wsid", WSID);
+            
             JsonObject paramsCuit = new JsonObject();
             paramsCuit.addProperty("token", wsaaToken);
             paramsCuit.addProperty("sign", wsaaSign);
@@ -250,187 +284,161 @@ public class AfipService {
             paramsCuit.addProperty("documento", dniLong);
             reqCuit.add("params", paramsCuit);
 
-            System.out.println("AFIP Padrón → Buscando CUIT para DNI " + dni + "...");
-            String respCuitStr = httpPost(AFIP_SDK_API_URL, reqCuit);
-            if (respCuitStr == null) {
-                return Optional.empty();
-            }
+            logger.info("AFIP Padrón → Buscando CUIT para DNI " + dni + "...");
+            return httpPostAsync(AFIP_SDK_API_URL, reqCuit, 2).thenCompose(respCuitStr -> {
+                if (respCuitStr == null) return CompletableFuture.completedFuture(Optional.<Cliente>empty());
 
-            JsonElement respCuitJson = gson.fromJson(respCuitStr, JsonElement.class);
-            long cuitNumerico = extraerCuit(respCuitJson);
-            if (cuitNumerico == -1) {
-                System.out.println("AFIP: DNI " + dni + " no encontrado en el padrón.");
-                return Optional.empty();
-            }
+                long cuitNumerico = extraerCuit(gson.fromJson(respCuitStr, JsonElement.class));
+                if (cuitNumerico == -1) {
+                    logger.info("AFIP: DNI " + dni + " no encontrado en el padrón.");
+                    return CompletableFuture.completedFuture(Optional.<Cliente>empty());
+                }
 
-            System.out.println("AFIP: CUIT encontrado para DNI " + dni + ": " + cuitNumerico);
+                logger.info("AFIP: CUIT encontrado para DNI " + dni + ": " + cuitNumerico);
 
-            // Paso 2: Obtener datos del contribuyente con el CUIT
-            JsonObject reqPersona = new JsonObject();
-            reqPersona.addProperty("environment", environment);
-            reqPersona.addProperty("method", "getPersona");
-            reqPersona.addProperty("wsid", WSID);
-            JsonObject paramsPersona = new JsonObject();
-            paramsPersona.addProperty("token", wsaaToken);
-            paramsPersona.addProperty("sign", wsaaSign);
-            paramsPersona.addProperty("cuitRepresentada", Long.parseLong(cuitRepresentada));
-            paramsPersona.addProperty("idPersona", cuitNumerico);
-            reqPersona.add("params", paramsPersona);
+                JsonObject reqPersona = new JsonObject();
+                reqPersona.addProperty("environment", environment);
+                reqPersona.addProperty("method", "getPersona");
+                reqPersona.addProperty("wsid", WSID);
+                
+                JsonObject paramsPersona = new JsonObject();
+                paramsPersona.addProperty("token", wsaaToken);
+                paramsPersona.addProperty("sign", wsaaSign);
+                paramsPersona.addProperty("cuitRepresentada", Long.parseLong(cuitRepresentada));
+                paramsPersona.addProperty("idPersona", cuitNumerico);
+                reqPersona.add("params", paramsPersona);
 
-            System.out.println("AFIP Padrón → Obteniendo datos para CUIT " + cuitNumerico + "...");
-            String respPersonaStr = httpPost(AFIP_SDK_API_URL, reqPersona);
-            if (respPersonaStr == null) {
-                return Optional.empty();
-            }
+                logger.info("AFIP Padrón → Obteniendo datos para CUIT " + cuitNumerico + "...");
+                return httpPostAsync(AFIP_SDK_API_URL, reqPersona, 2).thenApply(respPersonaStr -> {
+                    if (respPersonaStr == null) return Optional.<Cliente>empty();
 
-            JsonObject respPersona = gson.fromJson(respPersonaStr, JsonObject.class);
+                    JsonObject respPersona = gson.fromJson(respPersonaStr, JsonObject.class);
+                    JsonObject datos = respPersona;
+                    if (datos.has("personaReturn") && datos.get("personaReturn").isJsonObject()) {
+                        datos = datos.getAsJsonObject("personaReturn");
+                    }
+                    if (datos.has("persona") && datos.get("persona").isJsonObject()) {
+                        datos = datos.getAsJsonObject("persona");
+                    }
+                    if (datos.has("data") && datos.get("data").isJsonObject()) {
+                        datos = datos.getAsJsonObject("data");
+                    }
 
-            // Extraer datos — la respuesta real de AFIP viene con wrappers
-            // Posibles estructuras:
-            //   {personaReturn: {persona: {datosGenerales: ...}}}
-            //   {data: {datosGenerales: ...}}
-            //   {datosGenerales: ...}
-            JsonObject datos = respPersona;
-            if (datos.has("personaReturn") && datos.get("personaReturn").isJsonObject()) {
-                datos = datos.getAsJsonObject("personaReturn");
-            }
-            if (datos.has("persona") && datos.get("persona").isJsonObject()) {
-                datos = datos.getAsJsonObject("persona");
-            }
-            if (datos.has("data") && datos.get("data").isJsonObject()) {
-                datos = datos.getAsJsonObject("data");
-            }
+                    String nombre = extraerNombre(datos);
+                    String cuitStr = String.valueOf(cuitNumerico);
+                    String prefijo = cuitStr.substring(0, 2);
 
-            System.out.println("AFIP Padrón → Datos recibidos: " + gson.toJson(datos).substring(0, Math.min(200, gson.toJson(datos).length())) + "...");
+                    cacheRepo.guardar(dni, nombre, cuitStr, prefijo);
+                    logger.info("AFIP: Resultado cacheado — " + nombre + " (CUIT: " + cuitStr + ")");
 
-            String nombre = extraerNombre(datos);
-            String cuitStr = String.valueOf(cuitNumerico);
-            String prefijo = cuitStr.substring(0, 2);
-
-            // Guardar en cache para futuras consultas
-            cacheRepo.guardar(dni, nombre, cuitStr, prefijo);
-            System.out.println("AFIP: Resultado cacheado — " + nombre + " (CUIT: " + cuitStr + ")");
-
-            return Cuit.intentarCrear(dni, prefijo)
-                    .map(cuit -> new Cliente(nombre, cuit));
-
-        } catch (Exception e) {
-            System.err.println("Error consultando AFIP para DNI " + dni + ": " + e.getMessage());
-            e.printStackTrace();
-            return Optional.empty();
-        }
+                    return Cuit.intentarCrear(dni, prefijo).map(cuit -> new Cliente(nombre, cuit));
+                });
+            });
+        }).exceptionally(ex -> {
+            logger.error("Error consultando AFIP para DNI " + dni + ": " + ex.getMessage());
+            return Optional.<Cliente>empty();
+        });
     }
 
     // ================================================================
-    //  HELPERS
+    //  HELPERS (HTTP & JSON)
     // ================================================================
 
     /**
-     * Envía un POST JSON a la URL indicada con el access_token como Bearer.
-     * Retorna el body de respuesta como String, o null si hubo error.
+     * Envía un POST JSON a la URL indicada de forma asíncrona, con reintentos para errores transitorios (5xx o Red).
      */
-    private String httpPost(String url, JsonObject body) throws IOException {
-        String accessToken = configRepo.getAfipAccessToken();
+    private CompletableFuture<String> httpPostAsync(String url, JsonObject body, int maxRetries) {
         String jsonBody = gson.toJson(body);
 
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
-
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + accessToken)
-                .timeout(Duration.ofSeconds(30))
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
-                .build();
+                .timeout(Duration.ofSeconds(15))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
 
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            int status = response.statusCode();
-            String responseBody = response.body();
-
-            System.out.println("AFIP ← Status: " + status + " | " + responseBody);
-
-            if (status >= 400) {
-                System.err.println("AFIP Error HTTP " + status + ": " + responseBody);
-                return null;
+        if (!url.equals(AFIP_SDK_AUTH_URL)) {
+            String accessToken = configRepo.getAfipAccessToken();
+            if (accessToken != null && !accessToken.isBlank()) {
+                requestBuilder.header("Authorization", "Bearer " + accessToken);
             }
-
-            return responseBody;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("La solicitud fue interrumpida", e);
         }
+
+        HttpRequest request = requestBuilder.build();
+        return sendWithRetry(request, maxRetries, 1);
     }
 
     /**
-     * Extrae el primer CUIT de la respuesta de getIdPersonaListByDocumento.
-     * Formato real de AFIP: {"idPersonaListReturn":{"idPersona":[20460006989],...}}
-     * También maneja: un número directo, un array, o un objeto con campo "data".
+     * Lógica de reintento con backoff exponencial.
      */
+    private CompletableFuture<String> sendWithRetry(HttpRequest request, int maxRetries, int attempt) {
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+            .handle((response, ex) -> {
+                if (ex != null) {
+                    if (attempt <= maxRetries) {
+                        logger.error("AFIP Error Red (intento " + attempt + "): " + ex.getMessage() + ". Reintentando...");
+                        return delayedRetry(request, maxRetries, attempt);
+                    }
+                    logger.error("AFIP Error de Red definitivo: " + ex.getMessage());
+                    return CompletableFuture.<String>completedFuture(null);
+                }
+                
+                int status = response.statusCode();
+                if (status >= 500 && attempt <= maxRetries) {
+                    logger.error("AFIP Error HTTP " + status + " (intento " + attempt + "). Reintentando...");
+                    return delayedRetry(request, maxRetries, attempt);
+                } else if (status >= 400) {
+                    logger.error("AFIP Error HTTP " + status + ": " + response.body());
+                    return CompletableFuture.<String>completedFuture(null);
+                }
+                
+                return CompletableFuture.completedFuture(response.body());
+            }).thenCompose(cf -> cf);
+    }
+
+    private CompletableFuture<String> delayedRetry(HttpRequest request, int maxRetries, int attempt) {
+        return CompletableFuture.supplyAsync(() -> {
+            try { Thread.sleep(attempt * 1000L); } catch (Exception ignored) {}
+            return null;
+        }).thenCompose(v -> sendWithRetry(request, maxRetries, attempt + 1));
+    }
+
     private long extraerCuit(JsonElement respuesta) {
         if (respuesta.isJsonObject()) {
             JsonObject obj = respuesta.getAsJsonObject();
-
-            // Formato real de AFIP: idPersonaListReturn → idPersona
             if (obj.has("idPersonaListReturn")) {
                 JsonObject inner = obj.getAsJsonObject("idPersonaListReturn");
                 if (inner.has("idPersona")) {
                     return extraerCuit(inner.get("idPersona"));
                 }
             }
-
-            // Formato alternativo con wrapper "data"
-            if (obj.has("data")) {
-                return extraerCuit(obj.get("data"));
-            }
-
-            // Buscar "idPersona" directamente
-            if (obj.has("idPersona")) {
-                return extraerCuit(obj.get("idPersona"));
-            }
-
+            if (obj.has("data")) return extraerCuit(obj.get("data"));
+            if (obj.has("idPersona")) return extraerCuit(obj.get("idPersona"));
             return -1;
         }
-
-        // Si es un array, tomar el primer elemento
         if (respuesta.isJsonArray()) {
             JsonArray arr = respuesta.getAsJsonArray();
             if (arr.isEmpty()) return -1;
             return arr.get(0).getAsLong();
         }
-
-        // Si es un número directo
         if (respuesta.isJsonPrimitive() && respuesta.getAsJsonPrimitive().isNumber()) {
             return respuesta.getAsLong();
         }
-
         return -1;
     }
 
-    /**
-     * Extrae el nombre completo del JSON de datos del contribuyente.
-     */
     private String extraerNombre(JsonObject datos) {
-        // Persona física: datosGenerales → nombre y apellido
         if (datos.has("datosGenerales") && datos.get("datosGenerales").isJsonObject()) {
             JsonObject dg = datos.getAsJsonObject("datosGenerales");
             String nombre = campo(dg, "nombre");
             String apellido = campo(dg, "apellido");
-            if (!nombre.isBlank() || !apellido.isBlank()) {
-                return (apellido + " " + nombre).trim();
-            }
+            if (!nombre.isBlank() || !apellido.isBlank()) return (apellido + " " + nombre).trim();
             String razonSocial = campo(dg, "razonSocial");
             if (!razonSocial.isBlank()) return razonSocial;
         }
 
-        // Fallback: campos en la raíz
         String nombre = campo(datos, "nombre");
         String apellido = campo(datos, "apellido");
-        if (!nombre.isBlank() || !apellido.isBlank()) {
-            return (apellido + " " + nombre).trim();
-        }
+        if (!nombre.isBlank() || !apellido.isBlank()) return (apellido + " " + nombre).trim();
 
         String rs = campo(datos, "razonSocial");
         if (!rs.isBlank()) return rs;
@@ -441,9 +449,7 @@ public class AfipService {
     }
 
     private String campo(JsonObject obj, String key) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
-            return obj.get(key).getAsString();
-        }
+        if (obj.has(key) && !obj.get(key).isJsonNull()) return obj.get(key).getAsString();
         return "";
     }
 }

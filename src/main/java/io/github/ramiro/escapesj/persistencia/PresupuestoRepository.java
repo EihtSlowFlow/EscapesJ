@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.persistencia;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -12,6 +15,8 @@ import java.util.List;
  * Repositorio para presupuestos: creación, búsqueda y validación por código único.
  */
 public class PresupuestoRepository {
+    private static final Logger logger = LoggerFactory.getLogger(PresupuestoRepository.class);
+
 
     public PresupuestoRepository() {
     }
@@ -33,7 +38,7 @@ public class PresupuestoRepository {
                 return String.format("PRE-%04d", max + 1);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return "PRE-0001";
     }
@@ -62,7 +67,7 @@ public class PresupuestoRepository {
             pstmt.executeUpdate();
             return codigo;
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
             return null;
         }
     }
@@ -94,7 +99,7 @@ public class PresupuestoRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return null;
     }
@@ -127,7 +132,7 @@ public class PresupuestoRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return lista;
     }

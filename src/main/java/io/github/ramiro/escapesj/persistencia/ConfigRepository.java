@@ -1,9 +1,14 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Optional;
 
 public class ConfigRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ConfigRepository.class);
+
 
     public ConfigRepository() {
     }
@@ -22,7 +27,7 @@ public class ConfigRepository {
                 return (valor != null && !valor.isBlank()) ? Optional.of(valor) : Optional.empty();
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
         return Optional.empty();
     }
@@ -30,6 +35,11 @@ public class ConfigRepository {
     /**
      * Guarda o actualiza un valor de configuración.
      */
+    public void guardar(String clave, String valor) {
+        if ("afip.access_token".equals(clave)) {
+            valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
+        }
+        
     public void guardar(String clave, String valor) throws SQLException {
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
@@ -38,6 +48,8 @@ public class ConfigRepository {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
         }
     }
 
@@ -45,7 +57,9 @@ public class ConfigRepository {
      * Obtiene el Access Token de Afip SDK configurado.
      */
     public String getAfipAccessToken() {
-        return obtener("afip.access_token").orElse("");
+        return obtener("afip.access_token")
+                .map(io.github.ramiro.escapesj.sdk.CryptoUtil::decrypt)
+                .orElse("");
     }
 
     /**

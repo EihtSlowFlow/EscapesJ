@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.main;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.persistencia.*;
 import io.github.ramiro.escapesj.sdk.AfipService;
@@ -10,6 +13,8 @@ import java.awt.*;
 import java.sql.Connection;
 
 public class Principal {
+    private static final Logger logger = LoggerFactory.getLogger(Principal.class);
+
 
     public static void main(String[] args) {
 
@@ -60,7 +65,7 @@ public class Principal {
 
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 }

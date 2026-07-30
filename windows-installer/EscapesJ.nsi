@@ -52,6 +52,11 @@ Section "Instalar EscapesJ" SecMain
     File "EscapesJ.bat"
     File "escapesj.ico"
 
+    ; Copiar el JRE embebido (debe ser generado antes con generar_runtime.bat)
+    SetOutPath "$INSTDIR\runtime"
+    File /r "runtime\*"
+    SetOutPath "$INSTDIR"
+
     ; Guardar ubicación de instalación en el registro
     WriteRegStr HKLM "Software\EscapesJ" "InstallDir" "$INSTDIR"
 
@@ -94,6 +99,9 @@ Section "Uninstall"
     Delete "$INSTDIR\EscapesJ.bat"
     Delete "$INSTDIR\escapesj.ico"
     Delete "$INSTDIR\Desinstalar.exe"
+    
+    ; Eliminar JRE embebido
+    RMDir /r "$INSTDIR\runtime"
 
     ; Eliminar la carpeta de instalación (solo si está vacía)
     RMDir "$INSTDIR"

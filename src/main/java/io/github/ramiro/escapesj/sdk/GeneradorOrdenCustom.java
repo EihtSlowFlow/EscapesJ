@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.sdk;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
 import com.lowagie.text.Rectangle;
@@ -16,6 +19,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public class GeneradorOrdenCustom {
+    private static final Logger logger = LoggerFactory.getLogger(GeneradorOrdenCustom.class);
+
 
     // Helper para formatear números: $16,017.61
     private String formatDinero(double valor) {
@@ -132,7 +137,7 @@ public class GeneradorOrdenCustom {
             document.close();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 

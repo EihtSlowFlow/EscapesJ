@@ -3,10 +3,15 @@ package io.github.ramiro.escapesj.persistencia;
 import org.mindrot.jbcrypt.BCrypt;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
 
 public class UsuarioRepository {
+    private static final Logger logger = LoggerFactory.getLogger(UsuarioRepository.class);
+
 
     public UsuarioRepository() {
     }
@@ -38,7 +43,12 @@ public class UsuarioRepository {
                 return BCrypt.checkpw(password, dbHash);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            return false;
+        } catch (IllegalArgumentException e) {
+            // BCrypt throws IllegalArgumentException if the hash is invalid (e.g., from old plaintext passwords)
+            logger.error("Hash de contraseña inválido para el usuario: " + usuario);
+            return false;
         }
         return false;
     }
@@ -65,15 +75,7 @@ public class UsuarioRepository {
             ps.setString(2, usuario);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Cambia la contraseña de un usuario existente validando la actual.
-     */
-    public boolean cambiarPassword(String usuario, String passwordActual, String passwordNueva) {
-        if (!validarCredenciales(usuario, passwordActual)) {
+            logger.error("Error:", e);
             return false;
         }
         String hashNueva = BCrypt.hashpw(passwordNueva, BCrypt.gensalt());
@@ -100,7 +102,7 @@ public class UsuarioRepository {
             ps.setString(2, usuarioActual);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
             return false;
         }
     }

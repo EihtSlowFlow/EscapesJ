@@ -1,5 +1,8 @@
 package io.github.ramiro.escapesj.vista;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
@@ -25,6 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VentanaPrincipal extends JFrame {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VentanaPrincipal.class);
+
     private final AfipService afipService;
     private final Inventario inventario;
     private final ProductoRepository productoRepository;
@@ -363,22 +368,24 @@ public class VentanaPrincipal extends JFrame {
             public void changedUpdate(DocumentEvent e) { resetearNombreSiCambio(); }
         });
 
-        // Auto-lookup al salir del campo DNI: si ya está en cache, mostrar nombre al instante
-        // Usa buscarSoloEnCache (solo SQLite local, SIN llamadas HTTP a AFIP)
+        // Auto-lookup al salir del campo DNI, sin bloquear el EDT con SQLite.
         txtDni.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
                 String dni = txtDni.getText().trim();
                 if (dni.matches("\\d{7,8}") && esTextoDeEstado(txtNombre.getText())) {
-                    afipService.buscarSoloEnCache(dni).ifPresent(cliente -> {
-                        cliente.presentarseEn(new ClienteRepresentador() {
-                            public void definirDni(String d) {} // No tocar el DNI
-                            public void definirNombre(String nombre) {
-                                txtNombre.setText(nombre);
-                                txtNombre.setForeground(Color.WHITE);
-                            }
-                        });
-                    });
+                    afipService.buscarSoloEnCacheAsync(dni)
+                            .thenAcceptAsync(resultado -> resultado.ifPresent(cliente ->
+                                    cliente.presentarseEn(new ClienteRepresentador() {
+                                        public void definirDni(String d) {} // No tocar el DNI
+                                        public void definirNombre(String nombre) {
+                                            // No pisar una edición o búsqueda iniciada tras perder el foco.
+                                            if (dni.equals(txtDni.getText().trim()) && esTextoDeEstado(txtNombre.getText())) {
+                                                txtNombre.setText(nombre);
+                                                txtNombre.setForeground(Color.WHITE);
+                                            }
+                                        }
+                                    })), SwingUtilities::invokeLater);
                 }
             }
         });
@@ -395,7 +402,7 @@ public class VentanaPrincipal extends JFrame {
                     afipService.guardarEnCacheManual(dni, nombre);
                     txtNombre.setEditable(false);
                     txtNombre.setBackground(new Color(30, 35, 48));
-                    System.out.println("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
+                    logger.info("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
                 }
             }
         });
@@ -467,51 +474,46 @@ public class VentanaPrincipal extends JFrame {
         txtNombre.setText("Buscando...");
         txtNombre.setEditable(false);
 
-        // Búsqueda asíncrona
-        new SwingWorker<String, Void>() {
-            @Override
-            protected String doInBackground() {
-                var resultado = afipService.buscarClientePorDni(dniIngresado);
+        // Búsqueda asíncrona usando CompletableFuture
+        afipService.buscarClientePorDniAsync(dniIngresado)
+            .thenAcceptAsync(resultado -> {
+                btnBuscar.setEnabled(true);
                 if (resultado.isPresent()) {
                     final String[] nombre = {null};
                     resultado.get().presentarseEn(new ClienteRepresentador() {
-                        public void definirDni(String cuit) {} // No tocar DNI
+                        public void definirDni(String cuit) {} 
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    return nombre[0];
-                }
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                btnBuscar.setEnabled(true);
-                try {
-                    String nombre = get();
-                    if (nombre != null && !nombre.isBlank()) {
+                    
+                    if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dniIngresado);
-                        txtNombre.setText(nombre);
+                        txtNombre.setText(nombre[0]);
                         txtNombre.setForeground(Color.WHITE);
                         txtNombre.setEditable(false);
                         txtNombre.setBackground(new Color(30, 35, 48));
                         txtDescripcion.requestFocus();
-                    } else {
-                        txtDni.setText(dniIngresado);
-                        txtNombre.setText("");
-                        txtNombre.setForeground(Color.WHITE);
-                        txtNombre.setEditable(true);
-                        txtNombre.setFocusable(true);
-                        txtNombre.setBackground(new Color(60, 60, 80));
-                        txtNombre.requestFocus();
-                        txtNombre.setToolTipText("Ingresá el nombre del cliente manualmente");
+                        return;
                     }
-                } catch (Exception ex) {
+                }
+                
+                txtDni.setText(dniIngresado);
+                txtNombre.setText("");
+                txtNombre.setForeground(Color.WHITE);
+                txtNombre.setEditable(true);
+                txtNombre.setFocusable(true);
+                txtNombre.setBackground(new Color(60, 60, 80));
+                txtNombre.requestFocus();
+                txtNombre.setToolTipText("Ingresá el nombre del cliente manualmente");
+            }, SwingUtilities::invokeLater)
+            .exceptionally(ex -> {
+                SwingUtilities.invokeLater(() -> {
+                    btnBuscar.setEnabled(true);
                     txtDni.setText(dniIngresado);
                     txtNombre.setText("Error al buscar");
                     txtNombre.setForeground(new Color(255, 100, 100));
-                }
-            }
-        }.execute();
+                });
+                return null;
+            });
     }
 
     private void abrirBuscador() {
@@ -668,7 +670,7 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this,
                     "Boleta guardada en DB pero hubo un error al generar el PDF:\n" + ex.getMessage(),
                     "Error PDF", JOptionPane.WARNING_MESSAGE);
-            ex.printStackTrace();
+            logger.error("Error:", ex);
         }
 
         // Limpiar todo el formulario solo después de que la factura se guardó exitosamente

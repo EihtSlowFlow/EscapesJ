@@ -10,15 +10,16 @@ import io.github.ramiro.escapesj.persistencia.ClienteCacheRepository;
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.Scanner;
 
 /**
  * Servicio de consulta al padrón de AFIP usando la REST API de Afip SDK.
@@ -332,36 +333,35 @@ public class AfipService {
         String accessToken = configRepo.getAfipAccessToken();
         String jsonBody = gson.toJson(body);
 
-        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-        conn.setDoOutput(true);
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(30000);
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
 
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(jsonBody.getBytes(StandardCharsets.UTF_8));
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .timeout(Duration.ofSeconds(30))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            int status = response.statusCode();
+            String responseBody = response.body();
+
+            System.out.println("AFIP ← Status: " + status + " | " + responseBody);
+
+            if (status >= 400) {
+                System.err.println("AFIP Error HTTP " + status + ": " + responseBody);
+                return null;
+            }
+
+            return responseBody;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("La solicitud fue interrumpida", e);
         }
-
-        int status = conn.getResponseCode();
-        String responseBody;
-
-        try (Scanner scanner = new Scanner(
-                status >= 400 ? conn.getErrorStream() : conn.getInputStream(),
-                StandardCharsets.UTF_8
-        ).useDelimiter("\\A")) {
-            responseBody = scanner.hasNext() ? scanner.next() : "";
-        }
-
-        System.out.println("AFIP ← Status: " + status + " | " + responseBody);
-
-        if (status >= 400) {
-            System.err.println("AFIP Error HTTP " + status + ": " + responseBody);
-            return null;
-        }
-
-        return responseBody;
     }
 
     /**

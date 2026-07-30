@@ -15,6 +15,7 @@ import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -42,8 +43,8 @@ public class VentanaPresupuesto extends JFrame {
     private final List<ItemPresupuesto> itemsPresupuesto = new ArrayList<>();
 
     // Producto seleccionado del inventario
-    private double precioProductoSel = 0;
     private String descProductoSel = "";
+    private BigDecimal precioProductoSel = BigDecimal.ZERO;
 
     public VentanaPresupuesto(AfipService afipService, PresupuestoRepository presupuestoRepo,
                                ProductoRepository productoRepo,
@@ -414,7 +415,7 @@ public class VentanaPresupuesto extends JFrame {
             producto.presentarseEn(new ProductoRepresentador() {
                 public void definirCodigo(String c) { txtCodProducto.setText(c); }
                 public void definirDescripcion(String d) { descProductoSel = d; }
-                public void definirPrecio(double p) { precioProductoSel = p; }
+                public void definirPrecio(BigDecimal p) { precioProductoSel = p; }
             });
             lblProductoInfo.setText("📦 " + descProductoSel + " — $" + String.format("%,.0f", precioProductoSel));
         });
@@ -446,13 +447,13 @@ public class VentanaPresupuesto extends JFrame {
 
         // Agregar servicio/mano de obra
         if (tieneServicio) {
-            double monto = 0;
+            BigDecimal monto = BigDecimal.ZERO;
             try {
                 String limpio = montoStr.replace("$", "").replace(".", "").replace(",", ".").trim();
-                if (!limpio.isEmpty() && !limpio.equals("0")) monto = Double.parseDouble(limpio);
+                if (!limpio.isEmpty() && !limpio.equals("0")) monto = new BigDecimal(limpio);
             } catch (NumberFormatException ignored) {}
 
-            double sub = monto * cantidad;
+            BigDecimal sub = monto.multiply(BigDecimal.valueOf(cantidad));
             itemsPresupuesto.add(new ItemPresupuesto(detalle, cantidad, monto, sub));
             modeloTabla.addRow(new Object[]{detalle, cantidad,
                     "$" + String.format("%,.0f", monto), "$" + String.format("%,.0f", sub)});
@@ -462,7 +463,7 @@ public class VentanaPresupuesto extends JFrame {
 
         // Agregar producto
         if (tieneProducto) {
-            double sub = precioProductoSel * cantidad;
+            BigDecimal sub = precioProductoSel.multiply(BigDecimal.valueOf(cantidad));
             itemsPresupuesto.add(new ItemPresupuesto(descProductoSel, cantidad, precioProductoSel, sub));
             modeloTabla.addRow(new Object[]{descProductoSel, cantidad,
                     "$" + String.format("%,.0f", precioProductoSel), "$" + String.format("%,.0f", sub)});
@@ -470,7 +471,7 @@ public class VentanaPresupuesto extends JFrame {
             txtCodProducto.setText("Ninguno seleccionado");
             txtCodProducto.setForeground(new Color(150, 150, 150));
             lblProductoInfo.setText(" ");
-            precioProductoSel = 0;
+            precioProductoSel = BigDecimal.ZERO;
             descProductoSel = "";
         }
 
@@ -502,7 +503,7 @@ public class VentanaPresupuesto extends JFrame {
         }
         String fechaLimiteStr = fechaLimite.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-        double totalEstimado = itemsPresupuesto.stream().mapToDouble(ItemPresupuesto::subtotal).sum();
+        BigDecimal totalEstimado = itemsPresupuesto.stream().map(ItemPresupuesto::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Armar descripción concatenada para la BD
         StringBuilder descBd = new StringBuilder();

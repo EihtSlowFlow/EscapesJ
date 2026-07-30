@@ -59,7 +59,7 @@ public class VentanaModificarProducto extends JDialog {
                     txtCod.getText().trim(),
                     txtNom.getText().trim(),
                     txtDesc.getText().trim(),
-                    Double.parseDouble(txtPre.getText().trim()),
+                    new java.math.BigDecimal(txtPre.getText().trim()),
                     Integer.parseInt(txtStock.getText().trim())
             );
             repository.actualizarConCambioDeCodigo(nuevo, productoOriginal.getCodigo());

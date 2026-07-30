@@ -16,29 +16,18 @@ public class Principal {
         configurarAparienciaGlobal();
 
         try {
-            Connection conexion = DatabaseService.getConnection();
+            DatabaseService.inicializar();
 
-            if (conexion == null) {
-                JOptionPane.showMessageDialog(null,
-                        "Error crítico al inicializar la base de datos local.",
-                        "Error de Conexión",
-                        JOptionPane.ERROR_MESSAGE);
-                System.exit(1);
-            }
-
-            ProductoRepository productoRepo = new ProductoRepository(conexion);
-            ServicioRepository servicioRepo = new ServicioRepository(conexion);
-            UsuarioRepository usuarioRepo = new UsuarioRepository(conexion);
-            ConfigRepository configRepo = new ConfigRepository(conexion);
-            ClienteCacheRepository cacheRepo = new ClienteCacheRepository(conexion);
-            BoletaRepository boletaRepo = new BoletaRepository(conexion);
-            PresupuestoRepository presupuestoRepo = new PresupuestoRepository(conexion);
+            ProductoRepository productoRepo = new ProductoRepository();
+            ServicioRepository servicioRepo = new ServicioRepository();
+            UsuarioRepository usuarioRepo = new UsuarioRepository();
+            ConfigRepository configRepo = new ConfigRepository();
+            ClienteCacheRepository cacheRepo = new ClienteCacheRepository();
+            BoletaRepository boletaRepo = new BoletaRepository();
+            PresupuestoRepository presupuestoRepo = new PresupuestoRepository();
             Inventario inventario = new Inventario(productoRepo);
 
             AfipService afipService = new AfipService(configRepo, cacheRepo);
-
-            // Cerrar la conexión SQLite al cerrar la aplicación
-            Runtime.getRuntime().addShutdownHook(new Thread(DatabaseService::cerrarConexion));
 
             SwingUtilities.invokeLater(() -> {
 

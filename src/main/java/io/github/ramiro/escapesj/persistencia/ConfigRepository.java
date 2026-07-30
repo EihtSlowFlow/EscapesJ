@@ -4,10 +4,8 @@ import java.sql.*;
 import java.util.Optional;
 
 public class ConfigRepository {
-    private final Connection connection;
 
-    public ConfigRepository(Connection connection) {
-        this.connection = connection;
+    public ConfigRepository() {
     }
 
     /**
@@ -15,7 +13,8 @@ public class ConfigRepository {
      */
     public Optional<String> obtener(String clave) {
         String sql = "SELECT valor FROM configuracion WHERE clave = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -34,7 +33,8 @@ public class ConfigRepository {
     public void guardar(String clave, String valor) throws SQLException {
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();

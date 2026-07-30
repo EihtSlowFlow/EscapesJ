@@ -4,12 +4,11 @@ import org.mindrot.jbcrypt.BCrypt;
 
 import java.sql.*;
 import java.util.Optional;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class UsuarioRepository {
-    private final Connection connection;
 
-    public UsuarioRepository(Connection connection) {
-        this.connection = connection;
+    public UsuarioRepository() {
     }
 
     /**
@@ -51,6 +50,18 @@ public class UsuarioRepository {
         String sql = "UPDATE usuarios SET password = ? WHERE usuario = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, hashNueva);
+     * Cambia la contraseña de un usuario existente encriptándola con BCrypt.
+     */
+    public boolean cambiarPassword(String usuario, String passwordActual, String passwordNueva) {
+        if (!validarCredenciales(usuario, passwordActual)) {
+            return false;
+        }
+        
+        String hashNuevo = BCrypt.hashpw(passwordNueva, BCrypt.gensalt());
+        String sql = "UPDATE usuarios SET password = ? WHERE usuario = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, hashNuevo);
             ps.setString(2, usuario);
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -83,7 +94,8 @@ public class UsuarioRepository {
      */
     public boolean cambiarUsuario(String usuarioActual, String usuarioNuevo) {
         String sql = "UPDATE usuarios SET usuario = ? WHERE usuario = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, usuarioNuevo);
             ps.setString(2, usuarioActual);
             return ps.executeUpdate() > 0;

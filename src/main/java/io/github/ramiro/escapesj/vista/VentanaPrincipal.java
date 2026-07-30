@@ -346,10 +346,7 @@ public class VentanaPrincipal extends JFrame {
                 return;
             }
             ItemOrden item = itemsOrden.get(fila);
-            // Restaurar stock si era un producto
-            if ("PRODUCTO".equals(item.tipo()) && item.codigoProducto() != null) {
-                inventario.restaurarStock(item.codigoProducto(), item.cantidad());
-            }
+            // Ya no restauramos stock aquí porque no lo restamos al agregar
             itemsOrden.remove(fila);
             modeloTabla.removeRow(fila);
         });
@@ -626,20 +623,36 @@ public class VentanaPrincipal extends JFrame {
         double descuentoMonto = subtotal * (descuentoPct / 100.0);
         double totalFinal = subtotal - descuentoMonto;
 
-        // 1. Crear boleta en DB (con total final)
-        int boletaId = boletaRepository.crearBoleta(dni, nombre, fechaHoy, totalFinal);
+        // 1. Transaction Helper for Boleta creation, Items, Stock, and History
+        try {
+            int boletaId = io.github.ramiro.escapesj.persistencia.TransactionHelper.runInTransaction(txConn -> {
+                // a. Crear boleta en DB (con total final)
+                int id = boletaRepository.crearBoleta(txConn, dni, nombre, fechaHoy, totalFinal);
+                if (id == -1) {
+                    throw new RuntimeException("No se pudo crear la boleta en la base de datos.");
+                }
 
-        // 2. Agregar cada ítem a la boleta + registrar en historial
-        for (ItemOrden item : itemsOrden) {
-            boletaRepository.agregarItem(boletaId, item.tipo(), item.descripcion(),
-                    item.codigoProducto(), item.cantidad(), item.precioUnitario());
+                // b. Agregar cada ítem a la boleta + restar stock + registrar historial
+                for (ItemOrden item : itemsOrden) {
+                    boletaRepository.agregarItem(txConn, id, item.tipo(), item.descripcion(),
+                            item.codigoProducto(), item.cantidad(), item.precioUnitario());
 
-            servicioRepository.registrar(new ServicioRealizado(dni, nombre,
-                    item.tipo() + ": " + item.descripcion(), fechaHoy));
-        }
+                    if ("PRODUCTO".equals(item.tipo()) && item.codigoProducto() != null) {
+                        boolean stockRestado = productoRepository.intentarRestarStock(txConn, item.codigoProducto(), item.cantidad());
+                        if (!stockRestado) {
+                            throw new RuntimeException("Stock insuficiente para: " + item.descripcion());
+                        }
+                    }
 
-        // 3. Obtener número de boleta y generar PDF
-        var items = boletaRepository.obtenerItems(boletaId);
+                    servicioRepository.registrar(txConn, new ServicioRealizado(dni, nombre,
+                            item.tipo() + ": " + item.descripcion(), fechaHoy));
+                }
+
+                return id;
+            });
+
+            // 3. Obtener número de boleta y generar PDF
+            var items = boletaRepository.obtenerItems(boletaId);
         var boletas = boletaRepository.buscarBoletasPorDni(dni);
         int numeroBoleta = boletas.stream()
                 .filter(b -> b.id() == boletaId)
@@ -672,6 +685,13 @@ public class VentanaPrincipal extends JFrame {
 
         // 4. Limpiar todo el formulario
         limpiarFormularioCompleto();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error procesando la facturación. Los cambios fueron revertidos.\n" + e.getMessage(),
+                    "Error en Transacción", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
     }
 
     private void resetearInputsProducto() {

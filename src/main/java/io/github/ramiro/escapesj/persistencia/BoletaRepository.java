@@ -32,12 +32,16 @@ public class BoletaRepository {
     }
 
     public int crearBoleta(String dni, String nombreCliente, String fecha, double total) {
+        return crearBoleta(this.conexion, dni, nombreCliente, fecha, total);
+    }
+
+    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
         int numero = siguienteNumero();
         String sql = """
                 INSERT INTO boletas (numero, dni, nombre_cliente, fecha, total)
                 VALUES (?, ?, ?, ?, ?)
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, numero);
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
@@ -52,16 +56,21 @@ public class BoletaRepository {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException("Error creando boleta", e);
         }
         return -1;
     }
 
     public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
+        agregarItem(this.conexion, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+    }
+
+    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
         String sql = """
                 INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
             pstmt.setInt(1, boletaId);
             pstmt.setString(2, tipo);
             pstmt.setString(3, descripcion);
@@ -72,6 +81,7 @@ public class BoletaRepository {
             pstmt.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException("Error agregando item", e);
         }
     }
 

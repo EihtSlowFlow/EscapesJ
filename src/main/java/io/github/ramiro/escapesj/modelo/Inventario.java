@@ -16,10 +16,16 @@ public class Inventario {
     }
 
     public boolean procesarVenta(String codigo, int cantidad) {
-        return repository.intentarRestarStock(codigo, cantidad);
+        return repository.verificarStockDisponible(codigo, cantidad);
+    }
+
+    public boolean verificarStockDisponible(String codigo, int cantidad) {
+        return repository.verificarStockDisponible(codigo, cantidad);
     }
 
     public void restaurarStock(String codigo, int cantidad) {
-        repository.sumarStock(codigo, cantidad);
+        // Obsoleto si no se resta prematuramente, pero lo dejamos vacío
+        // o llamamos a sumarStock si hiciera falta.
+        // repository.sumarStock(codigo, cantidad);
     }
 }

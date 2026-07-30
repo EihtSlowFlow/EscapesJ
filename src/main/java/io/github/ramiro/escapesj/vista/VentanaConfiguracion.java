@@ -21,8 +21,13 @@ public class VentanaConfiguracion extends JFrame {
 
     private JTextField txtAccessToken, txtCuit, txtCertPath, txtKeyPath;
     private JCheckBox chkProduction;
-    private JTextField txtUsuarioActual, txtUsuarioNuevo;
-    private JPasswordField txtPasswordActual, txtPasswordNueva, txtPasswordConfirmar;
+    private JTextField txtUsuarioActual;
+    private JTextField txtUsuarioNuevo;
+    private JPasswordField txtPasswordActual;
+    private JPasswordField txtPasswordNueva;
+    private JPasswordField txtPasswordConfirmar;
+    private JTextField txtPreguntaSeguridad;
+    private JTextField txtRespuestaSeguridad;
 
     public VentanaConfiguracion(ConfigRepository configRepo, UsuarioRepository usuarioRepo) {
         this.configRepo = configRepo;
@@ -189,6 +194,20 @@ public class VentanaConfiguracion extends JFrame {
         pnlCreds.add(txtPasswordConfirmar, gbc);
 
         gbc.gridy = 10;
+        pnlCreds.add(crearLabel("Pregunta de Seguridad (Opcional, para recuperar clave):"), gbc);
+        gbc.gridy = 11;
+        txtPreguntaSeguridad = new JTextField();
+        estilizarCampo(txtPreguntaSeguridad);
+        pnlCreds.add(txtPreguntaSeguridad, gbc);
+
+        gbc.gridy = 12;
+        pnlCreds.add(crearLabel("Respuesta de Seguridad:"), gbc);
+        gbc.gridy = 13;
+        txtRespuestaSeguridad = new JTextField();
+        estilizarCampo(txtRespuestaSeguridad);
+        pnlCreds.add(txtRespuestaSeguridad, gbc);
+
+        gbc.gridy = 14;
         gbc.insets = new Insets(15, 5, 5, 5);
         JButton btnCambiarCreds = new JButton("Actualizar Credenciales");
         btnCambiarCreds.setBackground(new Color(46, 204, 113));
@@ -398,8 +417,15 @@ public class VentanaConfiguracion extends JFrame {
             usuarioRepo.cambiarUsuario(usuarioActual, usuarioNuevo);
         }
 
+        // Configurar pregunta de seguridad si se completaron los campos
+        String pregunta = txtPreguntaSeguridad.getText().trim();
+        String respuesta = txtRespuestaSeguridad.getText().trim();
+        if (!pregunta.isEmpty() && !respuesta.isEmpty()) {
+            usuarioRepo.configurarPreguntaSeguridad(usuarioNuevo.isEmpty() ? usuarioActual : usuarioNuevo, pregunta, respuesta);
+        }
+
         JOptionPane.showMessageDialog(this,
-                "Credenciales actualizadas correctamente.",
+                "Credenciales y seguridad actualizadas correctamente.",
                 "Configuración", JOptionPane.INFORMATION_MESSAGE);
 
         // Limpiar campos
@@ -407,6 +433,7 @@ public class VentanaConfiguracion extends JFrame {
         txtPasswordNueva.setText("");
         txtPasswordConfirmar.setText("");
         txtUsuarioNuevo.setText("");
+        txtRespuestaSeguridad.setText("");
     }
 
     private JLabel crearLabel(String texto) {

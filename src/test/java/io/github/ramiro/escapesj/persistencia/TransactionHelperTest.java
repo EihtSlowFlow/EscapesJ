@@ -98,6 +98,10 @@ public class TransactionHelperTest {
 
         productoRepo.guardar(new Producto("TEST-001", "Producto de Prueba", "Test", 1000.0, 10));
 
+        int initialBoletas = countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'");
+        int initialItems = countRows("SELECT COUNT(*) FROM boleta_items WHERE descripcion = 'P1'");
+        int initialServicios = countRows("SELECT COUNT(*) FROM servicios_historial WHERE nombre = 'Test Commit Cliente'");
+
         FacturacionRequest request = new FacturacionRequest(
                 "11111111", "Test Commit Cliente", "2026-01-01",
                 List.of(
@@ -116,8 +120,8 @@ public class TransactionHelperTest {
         assertEquals(5, productoOpt.get().getStock(), "Stock should be committed to 5");
 
         // 2. Check boleta and history created
-        assertTrue(countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'") == 1);
-        assertTrue(countRows("SELECT COUNT(*) FROM boleta_items WHERE descripcion = 'P1'") == 1);
-        assertTrue(countRows("SELECT COUNT(*) FROM servicios_historial WHERE nombre = 'Test Commit Cliente'") == 1);
+        assertEquals(initialBoletas + 1, countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'"));
+        assertEquals(initialItems + 1, countRows("SELECT COUNT(*) FROM boleta_items WHERE descripcion = 'P1'"));
+        assertEquals(initialServicios + 1, countRows("SELECT COUNT(*) FROM servicios_historial WHERE nombre = 'Test Commit Cliente'"));
     }
 }

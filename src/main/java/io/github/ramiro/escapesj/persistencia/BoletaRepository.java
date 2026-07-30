@@ -85,16 +85,16 @@ public class BoletaRepository {
         }
     }
 
-    public List<BoletaResumen> buscarBoletasPorDni(String dni) {
+    public List<BoletaResumen> buscarBoletasPorDni(String dniBuscado) {
+        return buscarBoletasPorDni(this.conexion, dniBuscado);
+    }
+
+    public List<BoletaResumen> buscarBoletasPorDni(Connection txConn, String dniBuscado) {
         List<BoletaResumen> lista = new ArrayList<>();
-        String sql = """
-                SELECT id, numero, dni, nombre_cliente, fecha, total
-                FROM boletas
-                WHERE dni = ?
-                ORDER BY fecha DESC
-                """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
-            pstmt.setString(1, dni);
+        String sql = "SELECT * FROM boletas WHERE dni = ? ORDER BY fecha DESC";
+
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
+            pstmt.setString(1, dniBuscado);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     lista.add(new BoletaResumen(
@@ -114,13 +114,19 @@ public class BoletaRepository {
     }
 
     public List<BoletaItem> obtenerItems(int boletaId) {
+        return obtenerItems(this.conexion, boletaId);
+    }
+
+    public List<BoletaItem> obtenerItems(Connection txConn, int boletaId) {
         List<BoletaItem> lista = new ArrayList<>();
         String sql = """
-                SELECT id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal
+                SELECT id, tipo, descripcion, codigo_producto, cantidad, precio_unitario,
+                       (cantidad * precio_unitario) AS subtotal
                 FROM boleta_items
                 WHERE boleta_id = ?
+                ORDER BY id ASC
                 """;
-        try (PreparedStatement pstmt = conexion.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
             pstmt.setInt(1, boletaId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {

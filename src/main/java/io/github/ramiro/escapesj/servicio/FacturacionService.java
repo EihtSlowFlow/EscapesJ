@@ -51,8 +51,8 @@ public class FacturacionService {
             }
 
             // 3. Obtener el número de boleta generado y los ítems guardados para el comprobante
-            var itemsInsertados = boletaRepository.obtenerItems(boletaId);
-            var boletas = boletaRepository.buscarBoletasPorDni(request.dni());
+            var itemsInsertados = boletaRepository.obtenerItems(txConn, boletaId);
+            var boletas = boletaRepository.buscarBoletasPorDni(txConn, request.dni());
             int numeroBoleta = boletas.stream()
                     .filter(b -> b.id() == boletaId)
                     .map(b -> b.numero())

@@ -28,6 +28,7 @@ public class VentanaPrincipal extends JFrame {
     private final ProductoRepository productoRepository;
     private final ServicioRepository servicioRepository;
     private final BoletaRepository boletaRepository;
+    private final io.github.ramiro.escapesj.servicio.FacturacionService facturacionService;
 
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion, txtMonto, txtDescuento;
@@ -53,6 +54,7 @@ public class VentanaPrincipal extends JFrame {
         this.productoRepository = prodRepo;
         this.servicioRepository = servRepo;
         this.boletaRepository = boletaRepo;
+        this.facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepo, prodRepo, servRepo);
         initUI();
     }
 
@@ -630,7 +632,6 @@ public class VentanaPrincipal extends JFrame {
                 dni, nombre, fechaHoy, itemsDto, descuentoPct
         );
 
-        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
         io.github.ramiro.escapesj.servicio.FacturacionResult resultadoFacturacion;
 
         try {

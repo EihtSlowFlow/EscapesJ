@@ -64,7 +64,8 @@ public class VentanaConfiguracion extends JFrame {
 
         // === SECCIÓN AFIP SDK ===
         JPanel pnlAfip = new JPanel(new GridBagLayout());
-        pnlAfip.setOpaque(false);
+        pnlAfip.setOpaque(true);
+        pnlAfip.setBackground(new Color(0, 43, 91));
         pnlAfip.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -149,7 +150,8 @@ public class VentanaConfiguracion extends JFrame {
 
         // === SECCIÓN CREDENCIALES ===
         JPanel pnlCreds = new JPanel(new GridBagLayout());
-        pnlCreds.setOpaque(false);
+        pnlCreds.setOpaque(true);
+        pnlCreds.setBackground(new Color(0, 43, 91));
         pnlCreds.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -221,7 +223,8 @@ public class VentanaConfiguracion extends JFrame {
 
         // === SECCIÓN DIRECTORIOS ===
         JPanel pnlDirectorios = new JPanel(new GridBagLayout());
-        pnlDirectorios.setOpaque(false);
+        pnlDirectorios.setOpaque(true);
+        pnlDirectorios.setBackground(new Color(0, 43, 91));
         pnlDirectorios.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;

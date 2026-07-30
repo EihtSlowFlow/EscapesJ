@@ -46,6 +46,8 @@ public class VentanaGestionInventario extends JFrame {
         JScrollPane scrollTabla = new JScrollPane(tabla);
         scrollTabla.getViewport().setBackground(new Color(45, 52, 71));
         scrollTabla.setBackground(new Color(45, 52, 71));
+        scrollTabla.setOpaque(true);
+        scrollTabla.getViewport().setOpaque(true);
         scrollTabla.setBorder(BorderFactory.createEmptyBorder());
         add(scrollTabla, BorderLayout.CENTER);
 
@@ -80,7 +82,7 @@ public class VentanaGestionInventario extends JFrame {
     private void registrarNuevo() {
         try {
             Producto p = new Producto(txtCod.getText().trim(), txtNom.getText().trim(),
-                    txtDesc.getText().trim(), Double.parseDouble(txtPre.getText().trim()),
+                    txtDesc.getText().trim(), new java.math.BigDecimal(txtPre.getText().trim()),
                     Integer.parseInt(txtStock.getText().trim()));
             repository.guardar(p);
             actualizarTabla();
@@ -170,7 +172,10 @@ public class VentanaGestionInventario extends JFrame {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(35);
+        t.setFillsViewportHeight(true);
+        t.setOpaque(true);
         t.getTableHeader().setBackground(new Color(30, 35, 48));
         t.getTableHeader().setForeground(Color.WHITE);
+        t.getTableHeader().setOpaque(true);
     }
 }

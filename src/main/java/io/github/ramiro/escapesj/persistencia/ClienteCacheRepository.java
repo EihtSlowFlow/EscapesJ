@@ -14,7 +14,6 @@ import java.util.Optional;
  * Por defecto las entradas expiran después de 30 días.
  */
 public class ClienteCacheRepository {
-    private final Connection connection;
     private static final int DIAS_EXPIRACION = diasHastaFinDeMes();
 
     /**
@@ -27,8 +26,7 @@ public class ClienteCacheRepository {
         return Math.max(diasRestantes, 7);
     }
 
-    public ClienteCacheRepository(Connection connection) {
-        this.connection = connection;
+    public ClienteCacheRepository() {
     }
 
     /**
@@ -37,7 +35,8 @@ public class ClienteCacheRepository {
      */
     public Optional<EntradaCache> buscarPorDni(String dni) {
         String sql = "SELECT dni, nombre, cuit, prefijo_cuit, fecha_cache FROM cache_afip WHERE dni = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, dni);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -71,7 +70,8 @@ public class ClienteCacheRepository {
         String sql = "INSERT INTO cache_afip (dni, nombre, cuit, prefijo_cuit, fecha_cache) VALUES (?, ?, ?, ?, ?) " +
                 "ON CONFLICT(dni) DO UPDATE SET nombre=excluded.nombre, cuit=excluded.cuit, " +
                 "prefijo_cuit=excluded.prefijo_cuit, fecha_cache=excluded.fecha_cache";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, dni);
             ps.setString(2, nombre);
             ps.setString(3, cuit);
@@ -88,7 +88,8 @@ public class ClienteCacheRepository {
      */
     public void eliminar(String dni) {
         String sql = "DELETE FROM cache_afip WHERE dni = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, dni);
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -101,7 +102,8 @@ public class ClienteCacheRepository {
      */
     public int limpiarExpirados() {
         String sql = "DELETE FROM cache_afip WHERE fecha_cache < ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             String limite = LocalDateTime.now()
                     .minusDays(DIAS_EXPIRACION)
                     .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);

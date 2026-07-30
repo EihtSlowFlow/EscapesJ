@@ -8,20 +8,33 @@ import java.sql.Statement;
 public class DatabaseService {
 
     private static final String DB_FILENAME = "escapesj.db";
-    private static Connection sharedConnection;
+    private static boolean inicializado = false;
 
     /**
-     * Obtiene la conexión compartida a SQLite.
+     * Inicializa la base de datos y crea las tablas si no existen.
+     * Debe llamarse una sola vez al arrancar la aplicación.
+     */
+    public static synchronized void inicializar() throws Exception {
+        if (inicializado) return;
+        try (Connection conn = getConnection()) {
+            inicializarTablas(conn);
+        }
+        inicializado = true;
+    }
+
+    /**
+     * Obtiene una nueva conexión a SQLite.
      * El archivo .db se crea junto al JAR ejecutable.
      */
-    public static synchronized Connection getConnection() {
+    public static Connection getConnection() {
         try {
-            if (sharedConnection == null || sharedConnection.isClosed()) {
-                String dbPath = obtenerRutaDB();
-                sharedConnection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-                inicializarTablas(sharedConnection);
+            String dbPath = obtenerRutaDB();
+            Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("PRAGMA journal_mode=WAL;");
+                stmt.execute("PRAGMA synchronous=NORMAL;");
             }
-            return sharedConnection;
+            return conn;
         } catch (Exception e) {
             System.err.println("Error al conectar con SQLite: " + e.getMessage());
             return null;
@@ -141,7 +154,8 @@ public class DatabaseService {
             // Seed: usuario admin por defecto si la tabla está vacía
             var rs = stmt.executeQuery("SELECT COUNT(*) FROM usuarios");
             if (rs.next() && rs.getInt(1) == 0) {
-                stmt.execute("INSERT INTO usuarios (usuario, password) VALUES ('admin', '1234')");
+                String hash = org.mindrot.jbcrypt.BCrypt.hashpw("1234", org.mindrot.jbcrypt.BCrypt.gensalt());
+                stmt.execute("INSERT INTO usuarios (usuario, password) VALUES ('admin', '" + hash + "')");
             }
 
             // Seed: configuración AFIP por defecto si no existe
@@ -191,16 +205,4 @@ public class DatabaseService {
         }
     }
 
-    /**
-     * Cierra la conexión compartida. Llamar al cerrar la aplicación.
-     */
-    public static synchronized void cerrarConexion() {
-        try {
-            if (sharedConnection != null && !sharedConnection.isClosed()) {
-                sharedConnection.close();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 }

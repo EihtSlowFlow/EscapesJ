@@ -1,9 +1,11 @@
 package io.github.ramiro.escapesj.modelo;
 
+import java.math.BigDecimal;
+
 public interface ProductoRepresentador {
     void definirCodigo(String codigo);
 
     void definirDescripcion(String descripcion);
 
-    void definirPrecio(double precio);
+    void definirPrecio(BigDecimal precio);
 }

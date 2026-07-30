@@ -7,10 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ServicioRepository {
-    private final Connection connection;
 
-    public ServicioRepository(Connection connection) {
-        this.connection = connection;
+    public ServicioRepository() {
     }
 
     public void registrar(ServicioRealizado s) {
@@ -34,7 +32,8 @@ public class ServicioRepository {
     public List<ServicioRealizado> buscarPorDni(String dni) {
         List<ServicioRealizado> lista = new ArrayList<>();
         String sql = "SELECT * FROM servicios_historial WHERE dni = ? ORDER BY fecha DESC";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, dni);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {

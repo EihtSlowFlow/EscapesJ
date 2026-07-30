@@ -8,10 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 public class ProductoRepository {
-    private final Connection connection;
 
-    public ProductoRepository(Connection connection) {
-        this.connection = connection;
+    public ProductoRepository() {
     }
 
     /**
@@ -20,11 +18,12 @@ public class ProductoRepository {
     public void guardar(Producto p) {
         String sql = "INSERT INTO productos (codigo, nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?, ?) " +
                 "ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, precio=excluded.precio, stock=excluded.stock";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, p.getCodigo());
             ps.setString(2, p.getNombre());
             ps.setString(3, p.getDescripcion());
-            ps.setDouble(4, p.getPrecio());
+            ps.setBigDecimal(4, p.getPrecio());
             ps.setInt(5, p.getStock());
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -37,11 +36,12 @@ public class ProductoRepository {
      */
     public void actualizarConCambioDeCodigo(Producto p, String viejoCodigo) {
         String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=? WHERE codigo=?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, p.getCodigo());
             ps.setString(2, p.getNombre());
             ps.setString(3, p.getDescripcion());
-            ps.setDouble(4, p.getPrecio());
+            ps.setBigDecimal(4, p.getPrecio());
             ps.setInt(5, p.getStock());
             ps.setString(6, viejoCodigo);
             ps.executeUpdate();
@@ -56,7 +56,8 @@ public class ProductoRepository {
      */
     public Optional<Producto> buscarPorCodigo(String codigo) {
         String sql = "SELECT * FROM productos WHERE codigo = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, codigo);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -64,7 +65,7 @@ public class ProductoRepository {
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getDouble("precio"),
+                        rs.getBigDecimal("precio"),
                         rs.getInt("stock")
                 ));
             }
@@ -80,13 +81,14 @@ public class ProductoRepository {
     public List<Producto> buscarTodos() {
         List<Producto> lista = new ArrayList<>();
         String sql = "SELECT * FROM productos";
-        try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 lista.add(new Producto(
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getDouble("precio"),
+                        rs.getBigDecimal("precio"),
                         rs.getInt("stock")
                 ));
             }
@@ -138,7 +140,8 @@ public class ProductoRepository {
      */
     public void sumarStock(String codigo, int cantidad) {
         String sql = "UPDATE productos SET stock = stock + ? WHERE codigo = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, cantidad);
             ps.setString(2, codigo);
             ps.executeUpdate();

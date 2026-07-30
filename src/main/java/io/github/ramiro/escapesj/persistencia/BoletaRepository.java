@@ -4,18 +4,17 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 public class BoletaRepository {
-    private final Connection conexion;
 
-    public BoletaRepository(Connection conexion) {
-        this.conexion = conexion;
+    public BoletaRepository() {
     }
 
-    public record BoletaResumen(int id, int numero, String dni, String nombreCliente, String fecha, double total) {}
-    public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario, double subtotal) {}
+    public record BoletaResumen(int id, int numero, String dni, String nombreCliente, String fecha, BigDecimal total) {}
+    public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     private int siguienteNumero(Connection txConn) {
         String sql = "SELECT MAX(numero) FROM boletas";
@@ -46,7 +45,7 @@ public class BoletaRepository {
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, fecha);
-            pstmt.setDouble(5, total);
+            pstmt.setBigDecimal(5, total);
             pstmt.executeUpdate();
             
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -76,8 +75,8 @@ public class BoletaRepository {
             pstmt.setString(3, descripcion);
             pstmt.setString(4, codigoProducto);
             pstmt.setInt(5, cantidad);
-            pstmt.setDouble(6, precioUnitario);
-            pstmt.setDouble(7, cantidad * precioUnitario);
+            pstmt.setBigDecimal(6, precioUnitario);
+            pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
             pstmt.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -103,7 +102,7 @@ public class BoletaRepository {
                             rs.getString("dni"),
                             rs.getString("nombre_cliente"),
                             rs.getString("fecha"),
-                            rs.getDouble("total")
+                            rs.getBigDecimal("total")
                     ));
                 }
             }
@@ -136,8 +135,8 @@ public class BoletaRepository {
                             rs.getString("descripcion"),
                             rs.getString("codigo_producto"),
                             rs.getInt("cantidad"),
-                            rs.getDouble("precio_unitario"),
-                            rs.getDouble("subtotal")
+                            rs.getBigDecimal("precio_unitario"),
+                            rs.getBigDecimal("subtotal")
                     ));
                 }
             }

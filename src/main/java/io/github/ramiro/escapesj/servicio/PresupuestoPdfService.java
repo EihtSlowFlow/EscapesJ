@@ -7,6 +7,7 @@ import com.lowagie.text.pdf.PdfWriter;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.util.List;
 
@@ -15,11 +16,11 @@ import java.util.List;
  */
 public class PresupuestoPdfService {
 
-    public record ItemPresupuesto(String descripcion, int cantidad, double precioUnitario, double subtotal) {}
+    public record ItemPresupuesto(String descripcion, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     public static String generarPdf(String codigoUnico, String fechaEmision, String fechaLimite,
                                      String dniCliente, String nombreCliente,
-                                     List<ItemPresupuesto> items, double totalEstimado,
+                                     List<ItemPresupuesto> items, BigDecimal totalEstimado,
                                      String carpetaDestino) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {

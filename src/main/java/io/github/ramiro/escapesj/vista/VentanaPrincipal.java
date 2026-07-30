@@ -28,6 +28,7 @@ public class VentanaPrincipal extends JFrame {
     private final ProductoRepository productoRepository;
     private final ServicioRepository servicioRepository;
     private final BoletaRepository boletaRepository;
+    private final io.github.ramiro.escapesj.servicio.FacturacionService facturacionService;
 
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion, txtMonto, txtDescuento;
@@ -53,6 +54,7 @@ public class VentanaPrincipal extends JFrame {
         this.productoRepository = prodRepo;
         this.servicioRepository = servRepo;
         this.boletaRepository = boletaRepo;
+        this.facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepo, prodRepo, servRepo);
         initUI();
     }
 
@@ -346,10 +348,7 @@ public class VentanaPrincipal extends JFrame {
                 return;
             }
             ItemOrden item = itemsOrden.get(fila);
-            // Restaurar stock si era un producto
-            if ("PRODUCTO".equals(item.tipo()) && item.codigoProducto() != null) {
-                inventario.restaurarStock(item.codigoProducto(), item.cantidad());
-            }
+            // Ya no restauramos stock aquí porque no lo restamos al agregar
             itemsOrden.remove(fila);
             modeloTabla.removeRow(fila);
         });
@@ -622,42 +621,43 @@ public class VentanaPrincipal extends JFrame {
         }
 
         String fechaHoy = java.time.LocalDate.now().toString();
-        double subtotal = itemsOrden.stream().mapToDouble(ItemOrden::subtotal).sum();
-        double descuentoMonto = subtotal * (descuentoPct / 100.0);
-        double totalFinal = subtotal - descuentoMonto;
 
-        // 1. Crear boleta en DB (con total final)
-        int boletaId = boletaRepository.crearBoleta(dni, nombre, fechaHoy, totalFinal);
+        // Convert UI items to service DTO
+        java.util.List<io.github.ramiro.escapesj.servicio.ItemFacturacion> itemsDto = itemsOrden.stream()
+                .map(item -> new io.github.ramiro.escapesj.servicio.ItemFacturacion(
+                        item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario()))
+                .toList();
 
-        // 2. Agregar cada ítem a la boleta + registrar en historial
-        for (ItemOrden item : itemsOrden) {
-            boletaRepository.agregarItem(boletaId, item.tipo(), item.descripcion(),
-                    item.codigoProducto(), item.cantidad(), item.precioUnitario());
+        io.github.ramiro.escapesj.servicio.FacturacionRequest request = new io.github.ramiro.escapesj.servicio.FacturacionRequest(
+                dni, nombre, fechaHoy, itemsDto, descuentoPct
+        );
 
-            servicioRepository.registrar(new ServicioRealizado(dni, nombre,
-                    item.tipo() + ": " + item.descripcion(), fechaHoy));
+        io.github.ramiro.escapesj.servicio.FacturacionResult resultadoFacturacion;
+
+        try {
+            resultadoFacturacion = facturacionService.facturarOrden(request);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                    "Error procesando la facturación. Los cambios fueron revertidos.\n" + e.getMessage(),
+                    "Error en Transacción", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            return; // Detener flujo, no limpiar el formulario ni generar PDF
         }
 
-        // 3. Obtener número de boleta y generar PDF
-        var items = boletaRepository.obtenerItems(boletaId);
-        var boletas = boletaRepository.buscarBoletasPorDni(dni);
-        int numeroBoleta = boletas.stream()
-                .filter(b -> b.id() == boletaId)
-                .map(b -> b.numero())
-                .findFirst().orElse(0);
-
+        double descuentoMonto = resultadoFacturacion.subtotal() * (descuentoPct / 100.0);
         String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
-        try {
-            String rutaPdf = BoletaPdfService.generarPdf(numeroBoleta, fechaHoy, dni, nombre,
-                    items, subtotal, metodoPago, descuentoPct, carpetaPdf);
 
-            String resumen = "✅ Boleta #" + numeroBoleta + " generada correctamente.\n\n"
-                    + "Subtotal: $" + String.format("%,.0f", subtotal) + "\n";
+        try {
+            String rutaPdf = BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
+                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
+
+            String resumen = "✅ Boleta #" + resultadoFacturacion.numero() + " generada correctamente.\n\n"
+                    + "Subtotal: $" + String.format("%,.0f", resultadoFacturacion.subtotal()) + "\n";
             if (descuentoMonto > 0) {
                 resumen += "Descuento (" + String.format("%.0f", descuentoPct) + "%): -$"
                         + String.format("%,.0f", descuentoMonto) + "\n";
             }
-            resumen += "Total: $" + String.format("%,.0f", totalFinal) + "\n"
+            resumen += "Total: $" + String.format("%,.0f", resultadoFacturacion.totalFinal()) + "\n"
                     + "Método: " + metodoPago + "\n\n"
                     + "PDF guardado en:\n" + rutaPdf;
 
@@ -670,7 +670,7 @@ public class VentanaPrincipal extends JFrame {
             ex.printStackTrace();
         }
 
-        // 4. Limpiar todo el formulario
+        // Limpiar todo el formulario solo después de que la factura se guardó exitosamente
         limpiarFormularioCompleto();
     }
 

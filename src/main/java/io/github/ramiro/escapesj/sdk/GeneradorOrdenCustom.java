@@ -42,7 +42,7 @@ public class GeneradorOrdenCustom {
             String cantidad,
             java.math.BigDecimal subtotal,
             java.math.BigDecimal porcentajeDto,
-            String metodoPago) {
+            String metodoPago, io.github.ramiro.escapesj.modelo.Emisor emisor) {
 
         java.math.BigDecimal montoDescontado = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(porcentajeDto).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP));
         java.math.BigDecimal totalFinal = subtotal.subtract(montoDescontado);
@@ -60,7 +60,11 @@ public class GeneradorOrdenCustom {
             PdfPTable headerTable = new PdfPTable(3);
             headerTable.setWidthPercentage(100);
             headerTable.setWidths(new float[]{1.5f, 3f, 2f});
-            headerTable.addCell(createCellNoBorder("LOGO\nescapesJ", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+            if (emisor != null && emisor.nombre() != null) {
+                headerTable.addCell(createCellNoBorder(emisor.nombre(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+            } else {
+                headerTable.addCell(createCellNoBorder("LOGO\nescapesJ", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+            }
 
             Font fAviso = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.WHITE);
             PdfPCell cellAviso = new PdfPCell(new Phrase("DOCUMENTO NO VÁLIDO\nCOMO FACTURA", fAviso));
@@ -80,6 +84,18 @@ public class GeneradorOrdenCustom {
             Font fValue = FontFactory.getFont(FontFactory.HELVETICA, 9);
             document.add(new Paragraph("Cliente: (" + idUnicoBD + ") - " + nombreCliente, fValue));
             document.add(new Paragraph("Domicilio: " + domicilioSDK, fValue));
+            document.add(new Paragraph("Cond. de Venta: " + condVentaSwing, fValue));
+            
+            // --- DATOS EMISOR ---
+            if (emisor != null) {
+                document.add(new Paragraph(" "));
+                document.add(new Paragraph("Atendido por: " + emisor.nombre(), fValue));
+                document.add(new Paragraph("CUIT Emisor: " + emisor.cuit(), fValue));
+                document.add(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fValue));
+                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                    document.add(new Paragraph("Teléfono Atención: " + emisor.telefono(), fValue));
+                }
+            }
 
             PdfPTable fTable = new PdfPTable(3);
             fTable.setWidthPercentage(100);

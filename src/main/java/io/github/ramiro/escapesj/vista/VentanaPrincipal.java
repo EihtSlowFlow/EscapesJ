@@ -7,13 +7,14 @@ import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
+import io.github.ramiro.escapesj.modelo.Emisor;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository;
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import io.github.ramiro.escapesj.persistencia.EmisorRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
 import io.github.ramiro.escapesj.servicio.BoletaPdfService;
-
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -327,6 +328,31 @@ public class VentanaPrincipal extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         bottomPanel.add(scroll, BorderLayout.CENTER);
 
+        // Panel inferior que contendrá la selección de emisor y el botón finalizar
+        JPanel pnlInferiorOpciones = new JPanel(new BorderLayout(10, 10));
+        pnlInferiorOpciones.setBackground(new Color(30, 39, 46));
+        pnlInferiorOpciones.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JPanel pnlEmisor = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlEmisor.setBackground(new Color(30, 39, 46));
+        pnlEmisor.add(new JLabel("<html><font color='white'>Emisor:</font></html>"));
+        comboEmisores = new JComboBox<>();
+        cargarEmisores();
+        pnlEmisor.add(comboEmisores);
+
+        JButton btnAgregarEmisor = new JButton("➕");
+        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        btnAgregarEmisor.addActionListener(e -> {
+            DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
+                cargarEmisores();
+                comboEmisores.setSelectedItem(nuevo);
+            });
+            diag.setVisible(true);
+        });
+        pnlEmisor.add(btnAgregarEmisor);
+
+        pnlInferiorOpciones.add(pnlEmisor, BorderLayout.NORTH);
+
         // Botón Finalizar Boleta
         JButton btnFinalizar = new JButton("🧾  Finalizar y Generar Boleta");
         btnFinalizar.setBackground(new Color(46, 204, 113));
@@ -336,7 +362,9 @@ public class VentanaPrincipal extends JFrame {
         btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnFinalizar.setPreferredSize(new Dimension(0, 45));
         btnFinalizar.setBorder(BorderFactory.createLineBorder(new Color(46, 204, 113).brighter(), 1));
-        bottomPanel.add(btnFinalizar, BorderLayout.SOUTH);
+        
+        pnlInferiorOpciones.add(btnFinalizar, BorderLayout.CENTER);
+        bottomPanel.add(pnlInferiorOpciones, BorderLayout.SOUTH);
 
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
         add(mainPanel);
@@ -434,6 +462,16 @@ public class VentanaPrincipal extends JFrame {
     /**
      * Verifica si un texto es un placeholder o mensaje de estado (no un nombre real).
      */
+    private JComboBox<Emisor> comboEmisores;
+    private final EmisorRepository emisorRepo = new EmisorRepository();
+
+    private void cargarEmisores() {
+        comboEmisores.removeAllItems();
+        for (Emisor e : emisorRepo.listarTodos()) {
+            comboEmisores.addItem(e);
+        }
+    }
+
     private boolean esTextoDeEstado(String texto) {
         return texto == null || texto.isEmpty()
                 || texto.equals(PLACEHOLDER_NOMBRE)
@@ -625,7 +663,12 @@ public class VentanaPrincipal extends JFrame {
             } catch (NumberFormatException ignored) {}
         }
 
-        String fechaHoy = java.time.LocalDate.now().toString();
+        String fechaHoy = io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(java.time.LocalDate.now().toString());
+        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
+        if (emisor == null) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         // Convert UI items to service DTO
         java.util.List<io.github.ramiro.escapesj.servicio.ItemFacturacion> itemsDto = itemsOrden.stream()
@@ -653,7 +696,7 @@ public class VentanaPrincipal extends JFrame {
         String carpetaPdf = configRepository.getRutaBoletas();
         try {
             String rutaPdf = io.github.ramiro.escapesj.servicio.BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
-                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
+                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf, emisor);
 
             java.math.BigDecimal descuentoMonto = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(
                     resultadoFacturacion.subtotal().multiply(descuentoPct).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP)

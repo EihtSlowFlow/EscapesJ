@@ -44,7 +44,7 @@ class DatabaseMigrationTest {
             try (ResultSet version = statement.executeQuery(
                     "SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
                 assertTrue(version.next());
-                assertEquals("1", version.getString(1));
+                assertEquals("2", version.getString(1));
             }
 
             assertImporteEnCentavos(statement, "boletas", "id", 1, "total", 100050L);

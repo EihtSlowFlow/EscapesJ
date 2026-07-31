@@ -200,43 +200,53 @@ public class DatabaseService {
                 // Si falla (ej. tabla configuración no estaba creada antes), la versión queda en 0
             }
 
-            if (currentVersion < 1) {
-                logger.info("Iniciando migración de base de datos a versión 1 (Conversión a centavos)...");
-
-                // Backup
-                if (customDbUrl == null) {
-                    String backupPath = obtenerRutaDB() + ".backup-" + System.currentTimeMillis() + ".db";
-                    try {
-                        stmt.execute("VACUUM INTO '" + backupPath.replace("\\", "/") + "'");
-                        logger.info("Backup creado exitosamente en: " + backupPath);
-                    } catch (Exception ex) {
-                        logger.error("No se pudo crear el backup antes de la migración. Cancelando inicio.", ex);
-                        throw ex;
-                    }
+            // Backup
+            if (customDbUrl == null) {
+                String backupPath = obtenerRutaDB() + ".backup-" + System.currentTimeMillis() + ".db";
+                try (Statement stmtBackup = conn.createStatement()) {
+                    stmtBackup.execute("VACUUM INTO '" + backupPath.replace("\\", "/") + "'");
+                    logger.info("Backup creado exitosamente en: " + backupPath);
+                } catch (Exception ex) {
+                    logger.warn("No se pudo crear backup de seguridad antes de migrar. Abortando migración.", ex);
+                    throw ex;
                 }
+            }
 
-                conn.setAutoCommit(false);
-                try {
+            conn.setAutoCommit(false);
+            try {
+                if (currentVersion < 1) {
+                    logger.info("Iniciando migración de base de datos a versión 1 (Conversión a centavos)...");
                     // Como db_version < 1, asumimos que toda la base es legacy y multiplicamos incondicionalmente por 100.
                     stmt.execute("UPDATE boletas SET total = CAST(ROUND(total * 100) AS INTEGER)");
                     stmt.execute("UPDATE boleta_items SET precio_unitario = CAST(ROUND(precio_unitario * 100) AS INTEGER)");
                     stmt.execute("UPDATE boleta_items SET subtotal = CAST(ROUND(subtotal * 100) AS INTEGER)");
                     stmt.execute("UPDATE productos SET precio = CAST(ROUND(precio * 100) AS INTEGER)");
                     stmt.execute("UPDATE presupuestos SET monto_estimado = CAST(ROUND(monto_estimado * 100) AS INTEGER)");
-
+                    
                     stmt.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_version', '1')");
-                    conn.commit();
                     logger.info("Migración a versión 1 exitosa.");
-                } catch (Exception e) {
-                    conn.rollback();
-                    logger.error("Error crítico durante la migración a versión 1. Rollback ejecutado.", e);
-                    throw e; // Abort startup
-                } finally {
-                    conn.setAutoCommit(true);
                 }
-            }
 
-            // Seed: usuario admin por defecto si la tabla está vacía (ELIMINADO POR SEGURIDAD ISSUE #9)
+                if (currentVersion < 2) {
+                    logger.info("Iniciando migración de base de datos a versión 2 (Emisores)...");
+                    stmt.execute("CREATE TABLE IF NOT EXISTS emisores (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            "nombre TEXT NOT NULL, " +
+                            "cuit TEXT NOT NULL, " +
+                            "calle TEXT, " +
+                            "telefono TEXT)");
+                    stmt.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_version', '2')");
+                    logger.info("Migración a versión 2 exitosa.");
+                }
+
+                conn.commit();
+            } catch (Exception e) {
+                conn.rollback();
+                logger.error("Error crítico durante la migración. Rollback ejecutado.", e);
+                throw e; // Abort startup
+            } finally {
+                conn.setAutoCommit(true);
+            }
 
             // Seed: configuración AFIP por defecto si no existe
             var rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion");

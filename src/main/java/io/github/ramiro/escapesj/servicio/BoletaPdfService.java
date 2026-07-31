@@ -5,6 +5,7 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository.BoletaItem;
+import io.github.ramiro.escapesj.modelo.Emisor;
 
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
@@ -26,7 +27,7 @@ public class BoletaPdfService {
                                      List<BoletaItem> items,
                                      BigDecimal subtotal,
                                      String metodoPago, BigDecimal descuentoPorcentaje,
-                                     String carpetaDestino) {
+                                     String carpetaDestino, Emisor emisor) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {
             carpetaDestino = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
@@ -35,7 +36,8 @@ public class BoletaPdfService {
         java.io.File dir = new java.io.File(carpetaDestino);
         if (!dir.exists()) dir.mkdirs();
 
-        String fileName = String.format("Boleta_%04d_%s.pdf", numeroBoleta, fecha.replace("/", "-"));
+        String fechaLocal = io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(fecha);
+        String fileName = String.format("Boleta_%04d_%s.pdf", numeroBoleta, fechaLocal.replace("/", "-"));
         String filePath = new java.io.File(dir, fileName).getAbsolutePath();
 
         // Altura dinámica ajustada al contenido
@@ -69,30 +71,37 @@ public class BoletaPdfService {
             header.setSpacingAfter(4f);
 
             PdfPCell cellLogo = cellSinBorde();
-            try {
-                URL logoUrl = BoletaPdfService.class.getResource("/Logo.png");
-                if (logoUrl != null) {
-                    Image logo = Image.getInstance(logoUrl);
-                    logo.scaleToFit(60, 60);
-                    cellLogo.addElement(logo);
-                } else {
+            if (emisor != null && emisor.nombre() != null) {
+                cellLogo.addElement(new Paragraph(emisor.nombre(), fTitle));
+            } else {
+                try {
+                    URL logoUrl = BoletaPdfService.class.getResource("/Logo.png");
+                    if (logoUrl != null) {
+                        Image logo = Image.getInstance(logoUrl);
+                        logo.scaleToFit(60, 60);
+                        cellLogo.addElement(logo);
+                    } else {
+                        cellLogo.addElement(new Paragraph("escapesJ", fTitle));
+                    }
+                } catch (Exception e) {
                     cellLogo.addElement(new Paragraph("escapesJ", fTitle));
                 }
-            } catch (Exception e) {
-                cellLogo.addElement(new Paragraph("escapesJ", fTitle));
             }
             header.addCell(cellLogo);
 
             PdfPCell cellNum = cellSinBorde();
             cellNum.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
             Paragraph numP = new Paragraph(String.format("0001-%08d", numeroBoleta), fBold10);
-            numP.setAlignment(Paragraph.ALIGN_RIGHT);
-            Paragraph fechaP = new Paragraph(fecha, fBody8);
-            fechaP.setAlignment(Paragraph.ALIGN_RIGHT);
+            numP.setAlignment(PdfPCell.ALIGN_RIGHT);
+            Paragraph fechaP = new Paragraph(fechaLocal, fBody8);
+            fechaP.setAlignment(PdfPCell.ALIGN_RIGHT);
             cellNum.addElement(numP);
             cellNum.addElement(fechaP);
             header.addCell(cellNum);
             document.add(header);
+            document.add(new Paragraph(" "));
+
+
 
             // ── CLIENTE ──
             Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
@@ -101,6 +110,22 @@ public class BoletaPdfService {
             Paragraph dniP = new Paragraph("DNI: " + dniCliente, fBody8);
             dniP.setSpacingAfter(4f);
             document.add(dniP);
+
+            // ── DATOS DEL EMISOR ──
+            if (emisor != null) {
+                PdfPTable tableEmisor = new PdfPTable(1);
+                tableEmisor.setWidthPercentage(100);
+                PdfPCell cellEmisor = cellSinBorde();
+                cellEmisor.addElement(new Paragraph("Atendido por: " + emisor.nombre(), fBody8));
+                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
+                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
+                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
+                }
+                tableEmisor.addCell(cellEmisor);
+                document.add(tableEmisor);
+                document.add(new Paragraph(" "));
+            }
 
             // ── TABLA DE ÍTEMS ──
             PdfPTable tabla = new PdfPTable(4);

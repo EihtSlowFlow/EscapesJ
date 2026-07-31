@@ -2,7 +2,9 @@ package io.github.ramiro.escapesj.vista;
 
 import com.toedter.calendar.JDateChooser;
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
+import io.github.ramiro.escapesj.modelo.Emisor;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
+import io.github.ramiro.escapesj.persistencia.EmisorRepository;
 import io.github.ramiro.escapesj.persistencia.PresupuestoRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
@@ -32,11 +34,13 @@ public class VentanaPresupuesto extends JFrame {
     private final PresupuestoRepository presupuestoRepo;
     private final ProductoRepository productoRepo;
     private final io.github.ramiro.escapesj.persistencia.ConfigRepository configRepository;
+    private final EmisorRepository emisorRepo = new EmisorRepository();
 
     private JTextField txtDni, txtNombre, txtDescripcion, txtMonto, txtCodProducto, txtCantidad;
     private JDateChooser dateChooserLimite;
     private JLabel lblProductoInfo;
     private DefaultTableModel modeloTabla;
+    private JComboBox<Emisor> comboEmisores;
     private static final String PLACEHOLDER_NOMBRE = "Se completa automáticamente";
 
     // Ítems acumulados
@@ -287,7 +291,29 @@ public class VentanaPresupuesto extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         bottomPanel.add(scroll, BorderLayout.CENTER);
 
-        // Botones: Verificar + Generar
+        // Botones: Emisor + Verificar + Generar
+        JPanel pnlOpcionesInf = new JPanel(new BorderLayout());
+        pnlOpcionesInf.setBackground(new Color(45, 52, 71));
+
+        JPanel pnlEmisor = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlEmisor.setBackground(new Color(45, 52, 71));
+        pnlEmisor.add(new JLabel("<html><font color='white'>Emisor:</font></html>"));
+        comboEmisores = new JComboBox<>();
+        cargarEmisores();
+        pnlEmisor.add(comboEmisores);
+
+        JButton btnAgregarEmisor = new JButton("➕");
+        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        btnAgregarEmisor.addActionListener(e -> {
+            DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
+                cargarEmisores();
+                comboEmisores.setSelectedItem(nuevo);
+            });
+            diag.setVisible(true);
+        });
+        pnlEmisor.add(btnAgregarEmisor);
+        pnlOpcionesInf.add(pnlEmisor, BorderLayout.NORTH);
+
         JPanel pnlBotones = new JPanel(new GridLayout(1, 2, 8, 0));
         pnlBotones.setOpaque(false);
         pnlBotones.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
@@ -311,7 +337,8 @@ public class VentanaPresupuesto extends JFrame {
         btnGenerar.setBorder(BorderFactory.createLineBorder(new Color(155, 89, 182).brighter(), 1));
         pnlBotones.add(btnGenerar);
 
-        bottomPanel.add(pnlBotones, BorderLayout.SOUTH);
+        pnlOpcionesInf.add(pnlBotones, BorderLayout.CENTER);
+        bottomPanel.add(pnlOpcionesInf, BorderLayout.SOUTH);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
         setContentPane(mainPanel);
@@ -344,6 +371,13 @@ public class VentanaPresupuesto extends JFrame {
     // ════════════════════════════════════════
     //  LÓGICA
     // ════════════════════════════════════════
+
+    private void cargarEmisores() {
+        comboEmisores.removeAllItems();
+        for (Emisor e : emisorRepo.listarTodos()) {
+            comboEmisores.addItem(e);
+        }
+    }
 
     private void buscarCliente(JButton btnBuscar) {
         String dni = txtDni.getText().trim();
@@ -518,11 +552,17 @@ public class VentanaPresupuesto extends JFrame {
             return;
         }
 
+        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
+        if (emisor == null) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         String carpetaPdf = configRepository.getRutaPresupuestos();
         try {
             String rutaPdf = PresupuestoPdfService.generarPdf(
                     codigo, fechaHoy, fechaLimiteISO,
-                    dni, nombre, itemsPresupuesto, totalEstimado, carpetaPdf);
+                    dni, nombre, itemsPresupuesto, totalEstimado, carpetaPdf, emisor);
 
             JOptionPane.showMessageDialog(this,
                     "✅ Presupuesto generado correctamente.\n\n"

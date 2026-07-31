@@ -44,7 +44,7 @@ public class GeneradorOrdenCustom {
             java.math.BigDecimal porcentajeDto,
             String metodoPago) {
 
-        java.math.BigDecimal montoDescontado = subtotal.multiply(porcentajeDto).divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal montoDescontado = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(porcentajeDto).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP));
         java.math.BigDecimal totalFinal = subtotal.subtract(montoDescontado);
 
         // Tamaño 16x9 cm

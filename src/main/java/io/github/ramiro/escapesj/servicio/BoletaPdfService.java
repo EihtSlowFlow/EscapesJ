@@ -136,7 +136,7 @@ public class BoletaPdfService {
 
             // ── TOTALES ──
             boolean esEfectivo = "EFECTIVO".equalsIgnoreCase(metodoPago);
-            BigDecimal descuento = esEfectivo ? subtotal.multiply(descuentoPorcentaje).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal descuento = esEfectivo ? io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(descuentoPorcentaje).divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP)) : BigDecimal.ZERO;
             BigDecimal totalFinal = subtotal.subtract(descuento);
 
             // Subtotal

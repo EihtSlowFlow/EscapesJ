@@ -655,9 +655,9 @@ public class VentanaPrincipal extends JFrame {
             String rutaPdf = io.github.ramiro.escapesj.servicio.BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
                     resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
 
-            java.math.BigDecimal descuentoMonto = resultadoFacturacion.subtotal()
-                    .multiply(descuentoPct)
-                    .divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal descuentoMonto = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(
+                    resultadoFacturacion.subtotal().multiply(descuentoPct).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP)
+            );
 
             String resumen = "✅ Boleta #" + resultadoFacturacion.numero() + " generada correctamente.\n\n"
                     + "Subtotal: $" + String.format("%,.2f", resultadoFacturacion.subtotal()) + "\n";

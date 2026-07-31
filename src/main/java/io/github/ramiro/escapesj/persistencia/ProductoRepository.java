@@ -28,7 +28,7 @@ public class ProductoRepository {
             ps.setString(1, p.getCodigo());
             ps.setString(2, p.getNombre());
             ps.setString(3, p.getDescripcion());
-            ps.setBigDecimal(4, p.getPrecio());
+            ps.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(p.getPrecio()));
             ps.setInt(5, p.getStock());
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -39,17 +39,17 @@ public class ProductoRepository {
     /**
      * Permite modificar incluso el código (llave primaria) usando el código anterior como referencia.
      */
-    public void actualizarConCambioDeCodigo(Producto p, String viejoCodigo) {
+    public void actualizarConCambioDeCodigo(Producto producto, String viejoCodigo) {
         String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=? WHERE codigo=?";
         try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, p.getCodigo());
-            ps.setString(2, p.getNombre());
-            ps.setString(3, p.getDescripcion());
-            ps.setBigDecimal(4, p.getPrecio());
-            ps.setInt(5, p.getStock());
-            ps.setString(6, viejoCodigo);
-            ps.executeUpdate();
+             PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, producto.getCodigo());
+            pstmt.setString(2, producto.getNombre());
+            pstmt.setString(3, producto.getDescripcion());
+            pstmt.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(producto.getPrecio()));
+            pstmt.setInt(5, producto.getStock());
+            pstmt.setString(6, viejoCodigo);
+            pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
         }
@@ -93,7 +93,7 @@ public class ProductoRepository {
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getBigDecimal("precio"),
+                        io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
                         rs.getInt("stock")
                 ));
             }

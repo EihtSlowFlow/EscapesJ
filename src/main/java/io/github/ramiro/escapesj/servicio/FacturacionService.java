@@ -24,9 +24,9 @@ public class FacturacionService {
         java.math.BigDecimal subtotal = request.items().stream()
                 .map(item -> item.precioUnitario().multiply(java.math.BigDecimal.valueOf(item.cantidad())))
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        java.math.BigDecimal descuentoMonto = subtotal
-                .multiply(request.descuentoPorcentaje())
-                .divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal descuentoMonto = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(
+                subtotal.multiply(request.descuentoPorcentaje()).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP)
+        );
         java.math.BigDecimal totalFinal = subtotal.subtract(descuentoMonto);
 
         return TransactionHelper.runInTransaction(txConn -> {

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class FacturacionServiceTest {
 
@@ -58,6 +59,38 @@ public class FacturacionServiceTest {
         FacturacionResult result = facturacionService.facturarOrden(request);
 
         assertEquals(0, new BigDecimal("100.00").compareTo(result.subtotal()));
-        assertEquals(0, new BigDecimal("87.65").compareTo(result.totalFinal()));
+        assertEquals(0, new BigDecimal("87.65").compareTo(result.totalFinal())); // 12.35 discount
+    }
+
+    @Test
+    public void testRechazoValoresNegativos() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(new BigDecimal("-10.00"));
+        });
+    }
+
+    @Test
+    public void testRechazoPrecisionMayorADos() {
+        assertThrows(ArithmeticException.class, () -> {
+            io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(new BigDecimal("1.005"));
+        });
+    }
+
+    @Test
+    public void testAceptaValoresExactos() {
+        assertEquals(100L, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(new BigDecimal("1")));
+        assertEquals(100L, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(new BigDecimal("1.0")));
+        assertEquals(100L, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(new BigDecimal("1.00")));
+    }
+
+    @Test
+    public void testDescuentoCero() throws Exception {
+        FacturacionRequest request = new FacturacionRequest(
+                "12345678", "Test", "2026-01-01",
+                List.of(new ItemFacturacion("PRODUCTO", "Test", "TEST-F-1", 1, new BigDecimal("100.00"))),
+                "EFECTIVO", BigDecimal.ZERO
+        );
+        FacturacionResult result = facturacionService.facturarOrden(request);
+        assertEquals(0, new BigDecimal("100.00").compareTo(result.totalFinal()));
     }
 }

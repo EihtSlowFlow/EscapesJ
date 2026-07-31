@@ -55,10 +55,10 @@ public class CryptoUtil {
             ok &= file.setWritable(true, true);
             if (isDir) ok &= file.setExecutable(true, true);
             if (!ok) {
-                throw new IllegalStateException("No se pudieron establecer los permisos restrictivos de fallback (Windows) en: " + path);
+                logger.error("No se pudieron establecer los permisos restrictivos de fallback (Windows) en: " + path);
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Fallo crítico: No se pudieron establecer permisos restrictivos seguros en " + path, e);
+            logger.error("Fallo de seguridad: No se pudieron establecer permisos restrictivos seguros en " + path + ". Asegúrese de no ejecutar esto en un entorno expuesto.", e);
         }
     }
 

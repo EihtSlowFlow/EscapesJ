@@ -140,7 +140,7 @@ public class DatabaseService {
                     dni VARCHAR(20) NOT NULL,
                     nombre_cliente VARCHAR(100),
                     fecha VARCHAR(20) NOT NULL,
-                    total DECIMAL(10,2) NOT NULL DEFAULT 0
+                    total INTEGER NOT NULL DEFAULT 0
                 )
             """);
 
@@ -152,11 +152,21 @@ public class DatabaseService {
                     descripcion TEXT NOT NULL,
                     codigo_producto VARCHAR(50),
                     cantidad INTEGER NOT NULL DEFAULT 1,
-                    precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0,
-                    subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
+                    precio_unitario INTEGER NOT NULL DEFAULT 0,
+                    subtotal INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY (boleta_id) REFERENCES boletas(id)
                 )
             """);
+
+            try {
+                // Issue 22: Migration to INTEGER (cents)
+                // If it's real or text with decimal, multiply by 100.
+                stmt.execute("UPDATE boletas SET total = CAST(ROUND(total * 100) AS INTEGER) WHERE typeof(total) = 'real' OR (typeof(total) = 'text' AND total LIKE '%.%')");
+                stmt.execute("UPDATE boleta_items SET precio_unitario = CAST(ROUND(precio_unitario * 100) AS INTEGER) WHERE typeof(precio_unitario) = 'real' OR (typeof(precio_unitario) = 'text' AND precio_unitario LIKE '%.%')");
+                stmt.execute("UPDATE boleta_items SET subtotal = CAST(ROUND(subtotal * 100) AS INTEGER) WHERE typeof(subtotal) = 'real' OR (typeof(subtotal) = 'text' AND subtotal LIKE '%.%')");
+            } catch (Exception e) {
+                logger.warn("Migración de centavos omitida o fallida: " + e.getMessage());
+            }
 
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS presupuestos (

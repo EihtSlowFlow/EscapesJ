@@ -55,7 +55,7 @@ public class BoletaRepository {
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, fecha);
-            pstmt.setBigDecimal(5, total);
+            pstmt.setLong(5, total.multiply(new java.math.BigDecimal("100")).longValueExact());
             pstmt.executeUpdate();
 
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -89,8 +89,8 @@ public class BoletaRepository {
             pstmt.setString(3, descripcion);
             pstmt.setString(4, codigoProducto);
             pstmt.setInt(5, cantidad);
-            pstmt.setBigDecimal(6, precioUnitario);
-            pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
+            pstmt.setLong(6, precioUnitario.multiply(new java.math.BigDecimal("100")).longValueExact());
+            pstmt.setLong(7, precioUnitario.multiply(java.math.BigDecimal.valueOf(cantidad)).multiply(new java.math.BigDecimal("100")).longValueExact());
             pstmt.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -121,7 +121,7 @@ public class BoletaRepository {
                             rs.getString("dni"),
                             rs.getString("nombre_cliente"),
                             rs.getString("fecha"),
-                            rs.getBigDecimal("total")
+                            java.math.BigDecimal.valueOf(rs.getLong("total")).divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP)
                     ));
                 }
             }
@@ -159,8 +159,8 @@ public class BoletaRepository {
                             rs.getString("descripcion"),
                             rs.getString("codigo_producto"),
                             rs.getInt("cantidad"),
-                            rs.getBigDecimal("precio_unitario"),
-                            rs.getBigDecimal("subtotal")
+                            java.math.BigDecimal.valueOf(rs.getLong("precio_unitario")).divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP),
+                            java.math.BigDecimal.valueOf(rs.getLong("subtotal")).divide(new java.math.BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP)
                     ));
                 }
             }

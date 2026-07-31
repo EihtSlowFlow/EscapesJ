@@ -23,7 +23,7 @@ public class GeneradorOrdenCustom {
 
 
     // Helper para formatear números: $16,017.61
-    private String formatDinero(double valor) {
+    private String formatDinero(java.math.BigDecimal valor) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
         symbols.setGroupingSeparator(',');
         symbols.setDecimalSeparator('.');
@@ -40,12 +40,12 @@ public class GeneradorOrdenCustom {
             String nroSDK,
             String producto,
             String cantidad,
-            double subtotal,
-            double porcentajeDto,
+            java.math.BigDecimal subtotal,
+            java.math.BigDecimal porcentajeDto,
             String metodoPago) {
 
-        double montoDescontado = subtotal * (porcentajeDto / 100.0);
-        double totalFinal = subtotal - montoDescontado;
+        java.math.BigDecimal montoDescontado = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(porcentajeDto).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP));
+        java.math.BigDecimal totalFinal = subtotal.subtract(montoDescontado);
 
         // Tamaño 16x9 cm
         Rectangle customSize = new Rectangle(453.6f, 255.15f);

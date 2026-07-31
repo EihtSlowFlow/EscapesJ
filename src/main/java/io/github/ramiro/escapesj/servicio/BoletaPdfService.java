@@ -25,7 +25,7 @@ public class BoletaPdfService {
                                      String nombreCliente,
                                      List<BoletaItem> items,
                                      BigDecimal subtotal,
-                                     String metodoPago, double descuentoPorcentaje,
+                                     String metodoPago, BigDecimal descuentoPorcentaje,
                                      String carpetaDestino) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {
@@ -41,7 +41,7 @@ public class BoletaPdfService {
         // Altura dinámica ajustada al contenido
         //  Logo+cabecera: ~90pt, cliente: 25pt, tabla header: 18pt, por ítem: 15pt, totales+pie: ~80pt
         float alturaContenido = 90f + 25f + 18f + (items.size() * 15f) + 80f;
-        if (descuentoPorcentaje > 0) alturaContenido += 30f; // descuento + línea EFECTIVO
+        if (descuentoPorcentaje.compareTo(BigDecimal.ZERO) > 0) alturaContenido += 30f; // descuento + línea EFECTIVO
         alturaContenido = Math.max(alturaContenido, 220f);
         Rectangle pagesize = new Rectangle(454f, alturaContenido);
         Document document = new Document(pagesize, 15, 15, 10, 8);
@@ -136,7 +136,7 @@ public class BoletaPdfService {
 
             // ── TOTALES ──
             boolean esEfectivo = "EFECTIVO".equalsIgnoreCase(metodoPago);
-            BigDecimal descuento = esEfectivo ? subtotal.multiply(BigDecimal.valueOf(descuentoPorcentaje / 100.0)).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal descuento = esEfectivo ? io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(descuentoPorcentaje).divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP)) : BigDecimal.ZERO;
             BigDecimal totalFinal = subtotal.subtract(descuento);
 
             // Subtotal
@@ -148,7 +148,7 @@ public class BoletaPdfService {
             // Descuento (solo si efectivo)
             if (esEfectivo && descuento.compareTo(BigDecimal.ZERO) > 0) {
                 Paragraph dtoP = new Paragraph(
-                        String.format("DTO: -%.1f%% = -$%,.2f", descuentoPorcentaje, descuento), fBody8);
+                        String.format("DTO: -%s%% = -$%,.2f", descuentoPorcentaje.toString(), descuento), fBody8);
                 dtoP.setAlignment(Paragraph.ALIGN_RIGHT);
                 dtoP.setSpacingAfter(1f);
                 document.add(dtoP);

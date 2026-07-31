@@ -61,7 +61,7 @@ public class PresupuestoRepository {
             pstmt.setString(2, dniCliente);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, descripcionTrabajo);
-            pstmt.setBigDecimal(5, montoEstimado);
+            pstmt.setLong(5, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(montoEstimado));
             pstmt.setString(6, fechaEmision);
             pstmt.setString(7, fechaLimite);
             pstmt.executeUpdate();
@@ -92,7 +92,7 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getBigDecimal("monto_estimado"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("monto_estimado")),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     );
@@ -125,7 +125,7 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getBigDecimal("monto_estimado"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("monto_estimado")),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     ));

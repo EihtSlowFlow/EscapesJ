@@ -7,6 +7,7 @@ import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.persistencia.*;
 import io.github.ramiro.escapesj.sdk.AfipService;
 import io.github.ramiro.escapesj.vista.VentanaLogin;
+import io.github.ramiro.escapesj.vista.VentanaSetupInicial;
 
 import javax.swing.*;
 import java.awt.*;
@@ -34,11 +35,17 @@ public class Principal {
 
             AfipService afipService = new AfipService(configRepo, cacheRepo);
 
-            SwingUtilities.invokeLater(() -> {
-
-                VentanaLogin login = new VentanaLogin(afipService, inventario, productoRepo, servicioRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo);
-                login.setVisible(true);
-            });
+            if (usuarioRepo.isUsuariosEmpty()) {
+                SwingUtilities.invokeLater(() -> {
+                    VentanaSetupInicial setup = new VentanaSetupInicial(usuarioRepo);
+                    setup.setVisible(true);
+                });
+            } else {
+                SwingUtilities.invokeLater(() -> {
+                    VentanaLogin login = new VentanaLogin(afipService, inventario, productoRepo, servicioRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo);
+                    login.setVisible(true);
+                });
+            }
 
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null,

@@ -35,11 +35,16 @@ public class BoletaRepository {
         return 1;
     }
 
-    public int crearBoleta(String dni, String nombreCliente, String fecha, double total) {
-        return crearBoleta(this.conexion, dni, nombreCliente, fecha, total);
+    public int crearBoleta(String dni, String nombreCliente, String fecha, BigDecimal total) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            return crearBoleta(conn, dni, nombreCliente, fecha, total);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
     }
 
-    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, double total) {
+    public int crearBoleta(Connection txConn, String dni, String nombreCliente, String fecha, BigDecimal total) {
         int numero = siguienteNumero(txConn);
         String sql = """
                 INSERT INTO boletas (numero, dni, nombre_cliente, fecha, total)
@@ -50,25 +55,30 @@ public class BoletaRepository {
             pstmt.setString(2, dni);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, fecha);
-            pstmt.setBigDecimal(5, total);
+            pstmt.setLong(5, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(total));
             pstmt.executeUpdate();
-            
+
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     return rs.getInt(1);
                 }
             }
         } catch (Exception e) {
-            logger.error("Error:", e);
+            e.printStackTrace();
+            throw new RuntimeException("Error creando boleta", e);
         }
         return -1;
     }
 
-    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
-        agregarItem(this.conexion, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, double precioUnitario) {
+    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
         String sql = """
                 INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -79,18 +89,22 @@ public class BoletaRepository {
             pstmt.setString(3, descripcion);
             pstmt.setString(4, codigoProducto);
             pstmt.setInt(5, cantidad);
-            pstmt.setBigDecimal(6, precioUnitario);
-            pstmt.setBigDecimal(7, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
+            pstmt.setLong(6, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario));
+            pstmt.setLong(7, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario.multiply(java.math.BigDecimal.valueOf(cantidad))));
             pstmt.executeUpdate();
         } catch (Exception e) {
-            logger.error("Error:", e);
             e.printStackTrace();
             throw new RuntimeException("Error agregando item", e);
         }
     }
 
     public List<BoletaResumen> buscarBoletasPorDni(String dniBuscado) {
-        return buscarBoletasPorDni(this.conexion, dniBuscado);
+        try (Connection conn = DatabaseService.getConnection()) {
+            return buscarBoletasPorDni(conn, dniBuscado);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     public List<BoletaResumen> buscarBoletasPorDni(Connection txConn, String dniBuscado) {
@@ -107,7 +121,7 @@ public class BoletaRepository {
                             rs.getString("dni"),
                             rs.getString("nombre_cliente"),
                             rs.getString("fecha"),
-                            rs.getBigDecimal("total")
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("total"))
                     ));
                 }
             }
@@ -118,7 +132,12 @@ public class BoletaRepository {
     }
 
     public List<BoletaItem> obtenerItems(int boletaId) {
-        return obtenerItems(this.conexion, boletaId);
+        try (Connection conn = DatabaseService.getConnection()) {
+            return obtenerItems(conn, boletaId);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     public List<BoletaItem> obtenerItems(Connection txConn, int boletaId) {
@@ -140,8 +159,8 @@ public class BoletaRepository {
                             rs.getString("descripcion"),
                             rs.getString("codigo_producto"),
                             rs.getInt("cantidad"),
-                            rs.getBigDecimal("precio_unitario"),
-                            rs.getBigDecimal("subtotal")
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio_unitario")),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("subtotal"))
                     ));
                 }
             }

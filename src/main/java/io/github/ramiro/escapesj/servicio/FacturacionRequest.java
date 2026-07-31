@@ -1,5 +1,6 @@
 package io.github.ramiro.escapesj.servicio;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public record FacturacionRequest(
@@ -7,5 +8,6 @@ public record FacturacionRequest(
         String nombreCliente,
         String fecha,
         List<ItemFacturacion> items,
-        double descuentoPorcentaje
+        String metodoPago,
+        BigDecimal descuentoPorcentaje
 ) {}

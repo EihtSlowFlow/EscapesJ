@@ -92,6 +92,16 @@ El ejecutable final se guardará en la carpeta `installer-output/` (que está ex
 
 ---
 
+## 🔐 Seguridad y Primer Inicio (First-Run Setup)
+
+EscapesJ cuenta con un flujo seguro de configuración inicial:
+*   **Sin contraseñas por defecto:** Al iniciar la aplicación por primera vez (o con una base de datos nueva), el sistema presentará una pantalla de *Setup Inicial* obligando a crear la cuenta de Administrador.
+*   **Migraciones:** En instalaciones existentes (anteriores a la v1.1), se forzará al usuario `admin` a cambiar su contraseña (si aún utilizaba el acceso predeterminado o migrado) en el momento del login.
+*   **Almacenamiento:** Todas las contraseñas se almacenan mediante hashing seguro con algoritmo **BCrypt**; bajo ninguna circunstancia se guardan contraseñas en texto plano.
+*   **Recuperación:** Permite la configuración de preguntas y respuestas de seguridad al momento de crear la cuenta o cambiar la contraseña, evitando el bloqueo permanente.
+
+---
+
 ## 🔐 Certificados de AFIP (Nota de Seguridad)
 
 El sistema requiere certificados criptográficos (`.key` y `.crt`) para comunicarse con la AFIP. 

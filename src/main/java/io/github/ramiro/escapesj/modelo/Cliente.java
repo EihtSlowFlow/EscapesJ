@@ -18,4 +18,8 @@ public class Cliente {
         this.cuit.usarComoIdentificador(representador::definirDni);
         representador.definirNombre(this.nombre);
     }
+
+    // Solo para pruebas
+    public String getNombre() { return this.nombre; }
+    public Cuit getCuit() { return this.cuit; }
 }

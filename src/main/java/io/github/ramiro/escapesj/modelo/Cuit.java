@@ -42,4 +42,7 @@ public class Cuit {
     public String toString() {
         return this.valor;
     }
+
+    // Solo para pruebas
+    public String getValor() { return this.valor; }
 }

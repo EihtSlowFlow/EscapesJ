@@ -376,7 +376,7 @@ public class VentanaPresupuesto extends JFrame {
                         public void definirDni(String cuit) {}
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    
+
                     if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dni);
                         txtNombre.setText(nombre[0]);
@@ -385,7 +385,7 @@ public class VentanaPresupuesto extends JFrame {
                         return;
                     }
                 }
-                
+
                 txtDni.setText(dni);
                 txtNombre.setText("");
                 txtNombre.setForeground(Color.WHITE);

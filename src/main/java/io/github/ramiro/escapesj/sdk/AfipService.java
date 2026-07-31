@@ -24,6 +24,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Servicio de consulta al padrón de AFIP usando la REST API de Afip SDK.
@@ -47,18 +50,30 @@ public class AfipService {
     private final ClienteCacheRepository cacheRepo;
 
     /** Cliente HTTP reutilizado por esta instancia en todas las peticiones. */
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(15))
-            .build();
+    private final HttpClient httpClient;
+
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1, r -> {
+        Thread t = new Thread(r, "AfipScheduler");
+        t.setDaemon(true);
+        return t;
+    });
 
     // Cache del Ticket de Acceso (token + sign) para no pedirlo en cada consulta
-    private String wsaaToken;
-    private String wsaaSign;
-    private Instant wsaaExpiration;
+    private volatile String wsaaToken;
+    private volatile String wsaaSign;
+    private volatile Instant wsaaExpiration;
+
+    // Sincronización del autenticado concurrente
+    private CompletableFuture<Boolean> currentAuthFuture;
 
     public AfipService(ConfigRepository configRepo, ClienteCacheRepository cacheRepo) {
+        this(configRepo, cacheRepo, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build());
+    }
+
+    public AfipService(ConfigRepository configRepo, ClienteCacheRepository cacheRepo, HttpClient httpClient) {
         this.configRepo = configRepo;
         this.cacheRepo = cacheRepo;
+        this.httpClient = httpClient;
 
         // Limpiar entradas expiradas al iniciar el servicio
         int limpiados = cacheRepo.limpiarExpirados();
@@ -170,11 +185,16 @@ public class AfipService {
     /**
      * Paso 1: Obtiene el Ticket de Acceso de forma asíncrona.
      */
-    private CompletableFuture<Boolean> autenticarAsync() {
+    private synchronized CompletableFuture<Boolean> autenticarAsync() {
         if (wsaaToken != null && wsaaSign != null && wsaaExpiration != null
                 && Instant.now().isBefore(wsaaExpiration)) {
             logger.info("AFIP Auth: Reutilizando Ticket de Acceso vigente.");
             return CompletableFuture.completedFuture(true);
+        }
+
+        if (currentAuthFuture != null && !currentAuthFuture.isDone()) {
+            logger.info("AFIP Auth: Reutilizando solicitud de autenticación en curso.");
+            return currentAuthFuture;
         }
 
         String environment = getEnvironment();
@@ -231,7 +251,7 @@ public class AfipService {
         // httpPostAsync ya serializó el cuerpo; soltar las referencias del árbol JSON antes de esperar la red.
         authBody.remove("cert");
         authBody.remove("key");
-        return authResponse.thenApply(responseBody -> {
+        currentAuthFuture = authResponse.thenApply(responseBody -> {
             if (responseBody == null) return false;
 
             JsonObject resp = gson.fromJson(responseBody, JsonObject.class);
@@ -253,9 +273,10 @@ public class AfipService {
                 return true;
             }
 
-            logger.error("AFIP Auth ← Error: No se recibió token/sign. Respuesta: " + responseBody);
+            logger.error("AFIP Auth ← Error: No se recibió token/sign. (Respuesta no logueada por seguridad)");
             return false;
         });
+        return currentAuthFuture;
     }
 
     /**
@@ -276,7 +297,7 @@ public class AfipService {
             reqCuit.addProperty("environment", environment);
             reqCuit.addProperty("method", "getIdPersonaListByDocumento");
             reqCuit.addProperty("wsid", WSID);
-            
+
             JsonObject paramsCuit = new JsonObject();
             paramsCuit.addProperty("token", wsaaToken);
             paramsCuit.addProperty("sign", wsaaSign);
@@ -300,7 +321,7 @@ public class AfipService {
                 reqPersona.addProperty("environment", environment);
                 reqPersona.addProperty("method", "getPersona");
                 reqPersona.addProperty("wsid", WSID);
-                
+
                 JsonObject paramsPersona = new JsonObject();
                 paramsPersona.addProperty("token", wsaaToken);
                 paramsPersona.addProperty("sign", wsaaSign);
@@ -381,25 +402,31 @@ public class AfipService {
                     logger.error("AFIP Error de Red definitivo: " + ex.getMessage());
                     return CompletableFuture.<String>completedFuture(null);
                 }
-                
+
                 int status = response.statusCode();
                 if (status >= 500 && attempt <= maxRetries) {
                     logger.error("AFIP Error HTTP " + status + " (intento " + attempt + "). Reintentando...");
                     return delayedRetry(request, maxRetries, attempt);
                 } else if (status >= 400) {
-                    logger.error("AFIP Error HTTP " + status + ": " + response.body());
+                    if (request.uri().toString().endsWith("/auth")) {
+                        logger.error("AFIP Error HTTP " + status + " en /auth (oculto por seguridad)");
+                    } else {
+                        logger.error("AFIP Error HTTP " + status + ": " + response.body());
+                    }
                     return CompletableFuture.<String>completedFuture(null);
                 }
-                
+
                 return CompletableFuture.completedFuture(response.body());
             }).thenCompose(cf -> cf);
     }
 
     private CompletableFuture<String> delayedRetry(HttpRequest request, int maxRetries, int attempt) {
-        return CompletableFuture.supplyAsync(() -> {
-            try { Thread.sleep(attempt * 1000L); } catch (Exception ignored) {}
-            return null;
-        }).thenCompose(v -> sendWithRetry(request, maxRetries, attempt + 1));
+        CompletableFuture<Void> delayFuture = new CompletableFuture<>();
+        // Agregar jitter al delay para evitar estampidas
+        long delayMillis = (attempt * 1000L) + (long)(Math.random() * 500);
+        scheduler.schedule(() -> delayFuture.complete(null), delayMillis, TimeUnit.MILLISECONDS);
+
+        return delayFuture.thenCompose(v -> sendWithRetry(request, maxRetries, attempt + 1));
     }
 
     private long extraerCuit(JsonElement respuesta) {

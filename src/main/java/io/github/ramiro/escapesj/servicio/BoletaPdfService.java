@@ -101,17 +101,7 @@ public class BoletaPdfService {
             document.add(header);
             document.add(new Paragraph(" "));
 
-
-
-            // ── CLIENTE ──
-            Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
-            clienteP.setSpacingAfter(1f);
-            document.add(clienteP);
-            Paragraph dniP = new Paragraph("DNI: " + dniCliente, fBody8);
-            dniP.setSpacingAfter(4f);
-            document.add(dniP);
-
-            // ── DATOS DEL EMISOR ──
+            // ── DATOS DEL EMISOR (Cabecera) ──
             if (emisor != null) {
                 PdfPTable tableEmisor = new PdfPTable(1);
                 tableEmisor.setWidthPercentage(100);
@@ -126,6 +116,16 @@ public class BoletaPdfService {
                 document.add(tableEmisor);
                 document.add(new Paragraph(" "));
             }
+
+
+
+            // ── CLIENTE ──
+            Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
+            clienteP.setSpacingAfter(1f);
+            document.add(clienteP);
+            Paragraph dniP = new Paragraph("DNI: " + dniCliente, fBody8);
+            dniP.setSpacingAfter(4f);
+            document.add(dniP);
 
             // ── TABLA DE ÍTEMS ──
             PdfPTable tabla = new PdfPTable(4);

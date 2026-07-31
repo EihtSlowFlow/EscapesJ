@@ -70,7 +70,7 @@ public class ProductoRepository {
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getBigDecimal("precio"),
+                        io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
                         rs.getInt("stock")
                 ));
             }

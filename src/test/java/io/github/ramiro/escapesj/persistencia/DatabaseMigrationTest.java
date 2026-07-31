@@ -1,90 +1,114 @@
 package io.github.ramiro.escapesj.persistencia;
 
-import io.github.ramiro.escapesj.sdk.DineroUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DatabaseMigrationTest {
+class DatabaseMigrationTest {
 
-    private String dbPath = "target/test-migration.db";
-    private String customUrl = "jdbc:sqlite:" + dbPath;
+    private static final String DB_PATH = "target/test-migration.db";
+    private static final String DB_URL = "jdbc:sqlite:" + DB_PATH;
 
     @BeforeEach
-    public void setup() throws Exception {
-        File dbFile = new File(dbPath);
-        if (dbFile.exists()) {
-            dbFile.delete();
-        }
+    void setUp() throws Exception {
+        deleteDatabaseFiles();
         DatabaseService.reiniciarTest();
-        DatabaseService.setCustomDbUrl(customUrl);
+        DatabaseService.setCustomDbUrl(DB_URL);
     }
 
     @AfterEach
-    public void teardown() {
-        File dbFile = new File(dbPath);
-        if (dbFile.exists()) {
-            dbFile.delete();
-        }
+    void tearDown() {
         DatabaseService.setCustomDbUrl(null);
+        DatabaseService.reiniciarTest();
+        deleteDatabaseFiles();
     }
 
     @Test
-    public void testMigrationLegacyToCentavos() throws Exception {
-        // 1. Create a legacy database (no db_version, REAL types)
-        try (Connection conn = DriverManager.getConnection(customUrl);
-             Statement stmt = conn.createStatement()) {
-             stmt.execute("CREATE TABLE boletas (id INTEGER PRIMARY KEY, total DECIMAL(10,2))");
-             stmt.execute("INSERT INTO boletas (id, total) VALUES (1, 1000.50)"); // 1000.50 pesos
-             stmt.execute("INSERT INTO boletas (id, total) VALUES (2, '250.75')"); // string with dot
-             stmt.execute("INSERT INTO boletas (id, total) VALUES (3, 500)"); // integer implicitly
-             
-             // other tables need to exist for inicializar not to crash
-             stmt.execute("CREATE TABLE configuracion (clave TEXT PRIMARY KEY, valor TEXT)");
-             stmt.execute("CREATE TABLE productos (codigo TEXT PRIMARY KEY, nombre TEXT, descripcion TEXT, precio REAL, stock INTEGER)");
-             stmt.execute("CREATE TABLE presupuestos (id INTEGER, monto_estimado REAL)");
-             stmt.execute("CREATE TABLE boleta_items (id INTEGER, boleta_id INTEGER, precio_unitario REAL, subtotal REAL)");
-        }
+    void migraImportesLegacyYMarcaLaVersion() throws Exception {
+        crearBaseLegacy();
 
-        // 2. Trigger migration
         DatabaseService.inicializar();
 
-        // 3. Verify data is now in centavos (INTEGER)
-        try (Connection conn = DriverManager.getConnection(customUrl);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM boletas ORDER BY id")) {
-             
-             assertTrue(rs.next());
-             assertEquals(100050L, rs.getLong("total")); // 1000.50 -> 100050
-             assertEquals("integer", getSqliteType(conn, "boletas", "total", 1));
-             
-             assertTrue(rs.next());
-             assertEquals(25075L, rs.getLong("total"));
-             assertEquals("integer", getSqliteType(conn, "boletas", "total", 2));
-             
-             assertTrue(rs.next());
-             // Wait! Since '500' is an integer, it is NOT caught by typeof='real' or LIKE '%.%'
-             // The old plan used to multiply only 'real'. Now we multiply EVERYTHING when db_version = 0.
-             // Wait, wait... in DatabaseService.java, I left the "typeof(total) = 'real'" condition!
-             // Let me check DatabaseService.java again! 
-             // "stmt.execute("UPDATE boletas SET total = CAST(ROUND(total * 100) AS INTEGER) WHERE typeof(total) = 'real' OR (typeof(total) = 'text' AND total LIKE '%.%');"
-             // Wait! I did not remove the WHERE clause in DatabaseService!
+        try (Connection connection = DriverManager.getConnection(DB_URL);
+             Statement statement = connection.createStatement()) {
+            try (ResultSet version = statement.executeQuery(
+                    "SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
+                assertTrue(version.next());
+                assertEquals("1", version.getString(1));
+            }
+
+            assertImporteEnCentavos(statement, "boletas", "id", 1, "total", 100050L);
+            assertImporteEnCentavos(statement, "boletas", "id", 2, "total", 25075L);
+            assertImporteEnCentavos(statement, "boletas", "id", 3, "total", 50000L);
+            assertImporteEnCentavos(statement, "boleta_items", "id", 1, "precio_unitario", 125050L);
+            assertImporteEnCentavos(statement, "boleta_items", "id", 1, "subtotal", 250100L);
+            assertImporteEnCentavos(statement, "productos", "codigo", "'P-1'", "precio", 4500000L);
+            assertImporteEnCentavos(statement, "presupuestos", "id", 1, "monto_estimado", 999999L);
+        }
+
+        assertEquals(0, new BigDecimal("45000.00")
+                .compareTo(new ProductoRepository().buscarPorCodigo("P-1").orElseThrow().getPrecio()));
+    }
+
+    @Test
+    void migracionEsIdempotenteCuandoLaVersionYaEsUno() throws Exception {
+        crearBaseLegacy();
+        DatabaseService.inicializar();
+
+        // El reinicio simula un segundo arranque de la aplicación.
+        DatabaseService.reiniciarTest();
+        DatabaseService.inicializar();
+
+        try (Connection connection = DriverManager.getConnection(DB_URL);
+             Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT total FROM boletas WHERE id = 1")) {
+            assertTrue(result.next());
+            assertEquals(100050L, result.getLong(1));
         }
     }
 
-    private String getSqliteType(Connection conn, String table, String col, int id) throws Exception {
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT typeof(" + col + ") FROM " + table + " WHERE id = " + id)) {
-            if (rs.next()) return rs.getString(1);
-            return null;
+    private void crearBaseLegacy() throws Exception {
+        try (Connection connection = DriverManager.getConnection(DB_URL);
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE configuracion (clave TEXT PRIMARY KEY, valor TEXT)");
+            statement.execute("CREATE TABLE boletas (id INTEGER PRIMARY KEY, numero INTEGER, dni TEXT, fecha TEXT, total DECIMAL(10,2))");
+            statement.execute("CREATE TABLE boleta_items (id INTEGER PRIMARY KEY, boleta_id INTEGER, cantidad INTEGER, precio_unitario DECIMAL(10,2), subtotal DECIMAL(10,2))");
+            statement.execute("CREATE TABLE productos (codigo TEXT PRIMARY KEY, nombre TEXT, descripcion TEXT, precio DECIMAL(10,2), stock INTEGER)");
+            statement.execute("CREATE TABLE presupuestos (id INTEGER PRIMARY KEY, monto_estimado DECIMAL(10,2))");
+
+            statement.execute("INSERT INTO boletas VALUES (1, 1, '1', '2026-01-01', 1000.50)");
+            statement.execute("INSERT INTO boletas VALUES (2, 2, '2', '2026-01-01', '250.75')");
+            statement.execute("INSERT INTO boletas VALUES (3, 3, '3', '2026-01-01', 500)");
+            statement.execute("INSERT INTO boleta_items VALUES (1, 1, 1, 1250.50, 2501.00)");
+            statement.execute("INSERT INTO productos VALUES ('P-1', 'Producto', 'Legacy', 45000.00, 1)");
+            statement.execute("INSERT INTO presupuestos VALUES (1, 9999.99)");
         }
+    }
+
+    private void assertImporteEnCentavos(Statement statement, String table, String keyColumn,
+                                         Object keyValue, String column, long expected) throws Exception {
+        try (ResultSet result = statement.executeQuery(
+                "SELECT " + column + ", typeof(" + column + ") FROM " + table
+                        + " WHERE " + keyColumn + " = " + keyValue)) {
+            assertTrue(result.next());
+            assertEquals(expected, result.getLong(1));
+            assertEquals("integer", result.getString(2));
+        }
+    }
+
+    private void deleteDatabaseFiles() {
+        new File(DB_PATH).delete();
+        new File(DB_PATH + "-wal").delete();
+        new File(DB_PATH + "-shm").delete();
     }
 }

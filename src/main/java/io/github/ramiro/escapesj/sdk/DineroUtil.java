@@ -2,6 +2,7 @@ package io.github.ramiro.escapesj.sdk;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Objects;
 
 /**
  * Utilidad centralizada para conversiones de dinero y centavos de precisión.
@@ -15,9 +16,7 @@ public class DineroUtil {
      * Si el valor de entrada tiene más de dos decimales, se lanzará ArithmeticException.
      */
     public static long aCentavos(BigDecimal valor) {
-        if (valor == null) {
-            return 0L;
-        }
+        Objects.requireNonNull(valor, "El importe no puede ser null.");
         if (valor.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Los importes negativos no están permitidos.");
         }

@@ -81,9 +81,9 @@ public class DialogoAgregarEmisor extends JDialog {
 
     private void guardar() {
         String nombre = txtNombre.getText().trim();
-        String cuit = txtCuit.getText().trim();
+        String cuit = txtCuit.getText().trim().replaceAll("[\\s\\-]", "");
         String calle = txtCalle.getText().trim();
-        String telefono = txtTelefono.getText().trim();
+        String telefono = txtTelefono.getText().trim().replaceAll("[\\s\\-]", "");
 
         if (nombre.isEmpty() || cuit.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Nombre y CUIT son obligatorios.", "Error", JOptionPane.ERROR_MESSAGE);

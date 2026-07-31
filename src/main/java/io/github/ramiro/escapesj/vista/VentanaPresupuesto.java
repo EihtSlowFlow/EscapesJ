@@ -377,6 +377,9 @@ public class VentanaPresupuesto extends JFrame {
         for (Emisor e : emisorRepo.listarTodos()) {
             comboEmisores.addItem(e);
         }
+        if (comboEmisores.getItemCount() > 0) {
+            comboEmisores.setSelectedIndex(0);
+        }
     }
 
     private void buscarCliente(JButton btnBuscar) {

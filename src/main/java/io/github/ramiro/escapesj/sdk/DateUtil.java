@@ -17,7 +17,7 @@ public class DateUtil {
      */
     public static String formatoLocal(String fechaIso) {
         if (fechaIso == null || fechaIso.isBlank()) {
-            return fechaIso;
+            return "";
         }
         try {
             LocalDate date = LocalDate.parse(fechaIso, ISO_FORMATTER);

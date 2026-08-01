@@ -21,7 +21,7 @@ public class PresupuestoPdfService {
     public static String generarPdf(String codigoUnico, String fechaEmision, String fechaLimite,
                                      String dniCliente, String nombreCliente,
                                      List<ItemPresupuesto> items, BigDecimal totalEstimado,
-                                     String carpetaDestino) {
+                                     String carpetaDestino, io.github.ramiro.escapesj.modelo.Emisor emisor) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {
             carpetaDestino = System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/";
@@ -30,8 +30,9 @@ public class PresupuestoPdfService {
         File dir = new File(carpetaDestino);
         if (!dir.exists()) dir.mkdirs();
 
+        String fechaEmisionLocal = io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(fechaEmision);
         String fileName = String.format("Presupuesto_%s_%s.pdf",
-                codigoUnico, fechaEmision.replace("/", "-"));
+                codigoUnico, fechaEmisionLocal.replace("/", "-"));
         String filePath = new File(dir, fileName).getAbsolutePath();
 
         // Altura dinámica
@@ -64,17 +65,21 @@ public class PresupuestoPdfService {
             header.setSpacingAfter(4f);
 
             PdfPCell cellLogo = cellSinBorde();
-            try {
-                URL logoUrl = PresupuestoPdfService.class.getResource("/Logo.png");
-                if (logoUrl != null) {
-                    Image logo = Image.getInstance(logoUrl);
-                    logo.scaleToFit(60, 60);
-                    cellLogo.addElement(logo);
-                } else {
+            if (emisor != null && emisor.nombre() != null) {
+                cellLogo.addElement(new Paragraph(emisor.nombre(), fTitle));
+            } else {
+                try {
+                    URL logoUrl = PresupuestoPdfService.class.getResource("/Logo.png");
+                    if (logoUrl != null) {
+                        Image logo = Image.getInstance(logoUrl);
+                        logo.scaleToFit(60, 60);
+                        cellLogo.addElement(logo);
+                    } else {
+                        cellLogo.addElement(new Paragraph("escapesJ", fTitle));
+                    }
+                } catch (Exception e) {
                     cellLogo.addElement(new Paragraph("escapesJ", fTitle));
                 }
-            } catch (Exception e) {
-                cellLogo.addElement(new Paragraph("escapesJ", fTitle));
             }
             header.addCell(cellLogo);
 
@@ -82,12 +87,29 @@ public class PresupuestoPdfService {
             cellInfo.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
             Paragraph codP = new Paragraph("Código: " + codigoUnico, fCode);
             codP.setAlignment(Paragraph.ALIGN_RIGHT);
-            Paragraph fechaP = new Paragraph("Fecha: " + fechaEmision, fBody8);
+            Paragraph fechaP = new Paragraph("Fecha: " + fechaEmisionLocal, fBody8);
             fechaP.setAlignment(Paragraph.ALIGN_RIGHT);
             cellInfo.addElement(codP);
             cellInfo.addElement(fechaP);
             header.addCell(cellInfo);
             document.add(header);
+            document.add(new Paragraph(" "));
+
+            // ── DATOS DEL EMISOR (Cabecera) ──
+            if (emisor != null) {
+                PdfPTable tableEmisor = new PdfPTable(1);
+                tableEmisor.setWidthPercentage(100);
+                PdfPCell cellEmisor = cellSinBorde();
+                cellEmisor.addElement(new Paragraph("Atendido por: " + emisor.nombre(), fBody8));
+                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
+                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
+                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
+                }
+                tableEmisor.addCell(cellEmisor);
+                document.add(tableEmisor);
+                document.add(new Paragraph(" "));
+            }
 
             // ── CLIENTE ──
             Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
@@ -134,7 +156,7 @@ public class PresupuestoPdfService {
 
             // ── VALIDEZ ──
             Paragraph validezP = new Paragraph(
-                    "✓ Presupuesto válido hasta: " + fechaLimite, fBold10);
+                    "✓ Presupuesto válido hasta: " + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(fechaLimite), fBold10);
             validezP.setSpacingAfter(2f);
             document.add(validezP);
 

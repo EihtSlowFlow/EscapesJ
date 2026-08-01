@@ -165,7 +165,7 @@ public class VentanaGestionServicios extends JFrame {
         for (var b : boletas) {
             modelBoletas.addRow(new Object[]{
                     b.id(), // Guardamos el ID en la primera columna (se muestra como Nro.)
-                    b.fecha(),
+                    io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(b.fecha()),
                     b.nombreCliente(),
                     "$" + String.format("%,.0f", b.total())
             });
@@ -178,7 +178,7 @@ public class VentanaGestionServicios extends JFrame {
             for (var b : boletas) {
                 modelBoletas.addRow(new Object[]{
                         b.numero(),
-                        b.fecha(),
+                        io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(b.fecha()),
                         b.nombreCliente(),
                         "$" + String.format("%,.0f", b.total())
                 });

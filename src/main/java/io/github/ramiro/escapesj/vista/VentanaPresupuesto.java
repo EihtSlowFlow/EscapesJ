@@ -602,8 +602,8 @@ public class VentanaPresupuesto extends JFrame {
                 + "DNI: " + p.dniCliente() + "\n"
                 + "Trabajo: " + p.descripcionTrabajo() + "\n"
                 + "Monto: $" + String.format("%,.0f", p.montoEstimado()) + "\n\n"
-                + "Emitido: " + p.fechaEmision() + "\n"
-                + "Válido hasta: " + p.fechaLimite(),
+                + "Emitido: " + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(p.fechaEmision()) + "\n"
+                + "Válido hasta: " + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(p.fechaLimite()),
                 "Presupuesto Encontrado", JOptionPane.INFORMATION_MESSAGE);
     }
 

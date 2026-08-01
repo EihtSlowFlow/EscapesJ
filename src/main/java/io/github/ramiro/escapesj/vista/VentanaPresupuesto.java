@@ -547,17 +547,17 @@ public class VentanaPresupuesto extends JFrame {
         String fechaHoy = LocalDate.now().toString();
         String fechaLimiteISO = fechaLimite.toString();
 
+        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
+        if (emisor == null) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         String codigo = presupuestoRepo.crearPresupuesto(
                 dni, nombre, descBd.toString(), totalEstimado, fechaHoy, fechaLimiteISO);
 
         if (codigo == null) {
             JOptionPane.showMessageDialog(this, "Error al guardar el presupuesto.");
-            return;
-        }
-
-        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
-        if (emisor == null) {
-            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 

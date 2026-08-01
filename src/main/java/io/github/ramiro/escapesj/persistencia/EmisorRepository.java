@@ -58,8 +58,8 @@ public class EmisorRepository {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("No se pudo guardar el emisor", e);
         }
-        return emisor;
+        throw new IllegalStateException("La base de datos no devolvió el identificador del emisor guardado");
     }
 }

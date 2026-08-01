@@ -10,6 +10,7 @@ import java.sql.Statement;
 
 public class DatabaseService {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
+    private static final int LATEST_DB_VERSION = 2;
 
 
     private static final String DB_FILENAME = "escapesj.db";
@@ -200,8 +201,8 @@ public class DatabaseService {
                 // Si falla (ej. tabla configuración no estaba creada antes), la versión queda en 0
             }
 
-            // Backup
-            if (customDbUrl == null) {
+            // Crear un backup solamente cuando realmente hay migraciones pendientes.
+            if (currentVersion < LATEST_DB_VERSION && customDbUrl == null) {
                 String backupPath = obtenerRutaDB() + ".backup-" + System.currentTimeMillis() + ".db";
                 try (Statement stmtBackup = conn.createStatement()) {
                     stmtBackup.execute("VACUUM INTO '" + backupPath.replace("\\", "/") + "'");

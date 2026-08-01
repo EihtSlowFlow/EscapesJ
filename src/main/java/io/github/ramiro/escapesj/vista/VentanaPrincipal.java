@@ -666,7 +666,9 @@ public class VentanaPrincipal extends JFrame {
             } catch (NumberFormatException ignored) {}
         }
 
-        String fechaHoy = io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(java.time.LocalDate.now().toString());
+        // Las fechas se persisten en ISO para que el orden lexicográfico también sea cronológico.
+        // La conversión a dd/MM/yyyy se realiza únicamente en la UI y en el PDF.
+        String fechaHoy = java.time.LocalDate.now().toString();
         Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
         if (emisor == null) {
             JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);

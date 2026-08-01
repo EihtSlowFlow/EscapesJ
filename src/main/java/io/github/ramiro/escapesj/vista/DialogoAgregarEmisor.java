@@ -91,11 +91,17 @@ public class DialogoAgregarEmisor extends JDialog {
         }
 
         Emisor nuevo = new Emisor(0, nombre, cuit, calle, telefono);
-        nuevo = emisorRepository.guardar(nuevo);
-        
-        if (onGuardado != null) {
-            onGuardado.accept(nuevo);
+        try {
+            nuevo = emisorRepository.guardar(nuevo);
+
+            if (onGuardado != null) {
+                onGuardado.accept(nuevo);
+            }
+            dispose();
+        } catch (RuntimeException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "No se pudo guardar el emisor:\n" + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
-        dispose();
     }
 }

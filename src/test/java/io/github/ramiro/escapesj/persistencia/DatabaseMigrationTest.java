@@ -3,9 +3,11 @@ package io.github.ramiro.escapesj.persistencia;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.math.BigDecimal;
+
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -16,21 +18,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseMigrationTest {
 
-    private static final String DB_PATH = "target/test-migration.db";
-    private static final String DB_URL = "jdbc:sqlite:" + DB_PATH;
+    @TempDir
+    Path tempDir;
+    
+    private String dbUrl;
 
     @BeforeEach
     void setUp() throws Exception {
-        deleteDatabaseFiles();
+        Path db = tempDir.resolve("escapesj-test.db");
+        dbUrl = "jdbc:sqlite:" + db.toAbsolutePath().toString();
         DatabaseService.reiniciarTest();
-        DatabaseService.setCustomDbUrl(DB_URL);
+        DatabaseService.setCustomDbUrl(dbUrl);
     }
 
     @AfterEach
     void tearDown() {
         DatabaseService.setCustomDbUrl(null);
         DatabaseService.reiniciarTest();
-        deleteDatabaseFiles();
     }
 
     @Test
@@ -39,7 +43,7 @@ class DatabaseMigrationTest {
 
         DatabaseService.inicializar();
 
-        try (Connection connection = DriverManager.getConnection(DB_URL);
+        try (Connection connection = DriverManager.getConnection(dbUrl);
              Statement statement = connection.createStatement()) {
             try (ResultSet version = statement.executeQuery(
                     "SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
@@ -69,7 +73,7 @@ class DatabaseMigrationTest {
         DatabaseService.reiniciarTest();
         DatabaseService.inicializar();
 
-        try (Connection connection = DriverManager.getConnection(DB_URL);
+        try (Connection connection = DriverManager.getConnection(dbUrl);
              Statement statement = connection.createStatement();
              ResultSet result = statement.executeQuery("SELECT total FROM boletas WHERE id = 1")) {
             assertTrue(result.next());
@@ -78,7 +82,7 @@ class DatabaseMigrationTest {
     }
 
     private void crearBaseLegacy() throws Exception {
-        try (Connection connection = DriverManager.getConnection(DB_URL);
+        try (Connection connection = DriverManager.getConnection(dbUrl);
              Statement statement = connection.createStatement()) {
             statement.execute("CREATE TABLE configuracion (clave TEXT PRIMARY KEY, valor TEXT)");
             statement.execute("CREATE TABLE boletas (id INTEGER PRIMARY KEY, numero INTEGER, dni TEXT, fecha TEXT, total DECIMAL(10,2))");
@@ -106,9 +110,5 @@ class DatabaseMigrationTest {
         }
     }
 
-    private void deleteDatabaseFiles() {
-        new File(DB_PATH).delete();
-        new File(DB_PATH + "-wal").delete();
-        new File(DB_PATH + "-shm").delete();
-    }
+    // deleteDatabaseFiles() is no longer needed with @TempDir
 }

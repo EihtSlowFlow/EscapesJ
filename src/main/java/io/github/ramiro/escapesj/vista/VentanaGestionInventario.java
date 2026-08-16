@@ -88,6 +88,10 @@ public class VentanaGestionInventario extends JFrame {
             actualizarTabla();
             limpiarCampos();
             JOptionPane.showMessageDialog(this, "Producto registrado con éxito.");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Verifique los formatos de precio y stock.");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "registrar producto", ex);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error en los datos.");
         }
@@ -95,9 +99,13 @@ public class VentanaGestionInventario extends JFrame {
 
     private void actualizarTabla() {
         model.setRowCount(0);
-        repository.buscarTodos().forEach(p -> {
-            model.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getStock(), "MODIFICAR"});
-        });
+        try {
+            repository.buscarTodos().forEach(p -> {
+                model.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getStock(), "MODIFICAR"});
+            });
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar inventario", ex);
+        }
     }
 
     // --- RENDERER Y EDITOR DEL BOTÓN DENTRO DE LA TABLA ---
@@ -126,11 +134,15 @@ public class VentanaGestionInventario extends JFrame {
             button.addActionListener(e -> {
                 int row = tabla.getSelectedRow();
                 String codigo = model.getValueAt(row, 0).toString();
-                repository.buscarPorCodigo(codigo).ifPresent(p -> {
-                    VentanaModificarProducto dialog = new VentanaModificarProducto(VentanaGestionInventario.this, p, repository);
-                    dialog.setVisible(true);
-                    if (dialog.isActualizado()) actualizarTabla();
-                });
+                try {
+                    repository.buscarPorCodigo(codigo).ifPresent(p -> {
+                        VentanaModificarProducto dialog = new VentanaModificarProducto(VentanaGestionInventario.this, p, repository);
+                        dialog.setVisible(true);
+                        if (dialog.isActualizado()) actualizarTabla();
+                    });
+                } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+                    ErrorHandler.mostrarErrorPersistencia(VentanaGestionInventario.this, "cargar producto a modificar", ex);
+                }
                 fireEditingStopped();
             });
         }

@@ -36,7 +36,7 @@ public class ConfigRepository {
     /**
      * Guarda o actualiza un valor de configuración.
      */
-    public void guardar(String clave, String valor) throws SQLException {
+    public void guardar(String clave, String valor) {
         if ("afip.access_token".equals(clave)) {
             valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
         }
@@ -48,6 +48,9 @@ public class ConfigRepository {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar la configuración: " + clave, e);
         }
     }
 

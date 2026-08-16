@@ -374,8 +374,12 @@ public class VentanaPresupuesto extends JFrame {
 
     private void cargarEmisores() {
         comboEmisores.removeAllItems();
-        for (Emisor e : emisorRepo.listarTodos()) {
-            comboEmisores.addItem(e);
+        try {
+            for (Emisor e : emisorRepo.listarTodos()) {
+                comboEmisores.addItem(e);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar emisores", ex);
         }
         if (comboEmisores.getItemCount() > 0) {
             comboEmisores.setSelectedIndex(0);
@@ -553,8 +557,14 @@ public class VentanaPresupuesto extends JFrame {
             return;
         }
 
-        String codigo = presupuestoRepo.crearPresupuesto(
-                dni, nombre, descBd.toString(), totalEstimado, fechaHoy, fechaLimiteISO);
+        String codigo;
+        try {
+            codigo = presupuestoRepo.crearPresupuesto(
+                    dni, nombre, descBd.toString(), totalEstimado, fechaHoy, fechaLimiteISO);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "generar presupuesto", e);
+            return;
+        }
 
         if (codigo == null) {
             JOptionPane.showMessageDialog(this, "Error al guardar el presupuesto.");
@@ -584,7 +594,14 @@ public class VentanaPresupuesto extends JFrame {
     }
 
     private void verificarPresupuesto(String codigo) {
-        var p = presupuestoRepo.buscarPorCodigo(codigo.toUpperCase());
+        io.github.ramiro.escapesj.persistencia.PresupuestoRepository.Presupuesto p;
+        try {
+            p = presupuestoRepo.buscarPorCodigo(codigo.toUpperCase());
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "verificar presupuesto", e);
+            return;
+        }
+
         if (p == null) {
             JOptionPane.showMessageDialog(this,
                     "❌ No se encontró ningún presupuesto con código: " + codigo,

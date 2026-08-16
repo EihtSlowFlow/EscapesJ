@@ -467,8 +467,12 @@ public class VentanaPrincipal extends JFrame {
 
     private void cargarEmisores() {
         comboEmisores.removeAllItems();
-        for (Emisor e : emisorRepo.listarTodos()) {
-            comboEmisores.addItem(e);
+        try {
+            for (Emisor e : emisorRepo.listarTodos()) {
+                comboEmisores.addItem(e);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar emisores", ex);
         }
         if (comboEmisores.getItemCount() > 0) {
             comboEmisores.setSelectedIndex(0);
@@ -638,6 +642,8 @@ public class VentanaPrincipal extends JFrame {
             }
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Ingrese una cantidad válida.");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "procesar producto", ex);
         }
     }
 
@@ -690,6 +696,9 @@ public class VentanaPrincipal extends JFrame {
 
         try {
             resultadoFacturacion = facturacionService.facturarOrden(request);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "finalizar boleta", e);
+            return;
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                     "Error procesando la facturación. Los cambios fueron revertidos.\n" + e.getMessage(),

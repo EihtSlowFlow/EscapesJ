@@ -18,9 +18,7 @@ public class ZoomControls extends JPanel implements ZoomManager.ZoomListener {
 
         lblPorcentaje = new JLabel(ZoomManager.getScalePercent() + "%");
         // No se fuerza una fuente absoluta aquí, dejando que UIManager escale la fuente del Label
-        lblPorcentaje.setPreferredSize(new Dimension(60, 30));
         lblPorcentaje.setHorizontalAlignment(SwingConstants.CENTER);
-        lblPorcentaje.setForeground(Color.WHITE);
 
         JButton btnReset = new JButton("100%");
         btnReset.setToolTipText("Restablecer tamaño (Ctrl + 0)");
@@ -47,6 +45,7 @@ public class ZoomControls extends JPanel implements ZoomManager.ZoomListener {
             listenerRegistered = true;
         }
         lblPorcentaje.setText(ZoomManager.getScalePercent() + "%");
+        updatePercentageContrast();
     }
 
     @Override
@@ -61,5 +60,17 @@ public class ZoomControls extends JPanel implements ZoomManager.ZoomListener {
     @Override
     public void onZoomChanged(int newPercent) {
         lblPorcentaje.setText(newPercent + "%");
+    }
+
+    private void updatePercentageContrast() {
+        Container ancestor = getParent();
+        while (ancestor instanceof JComponent component && !component.isOpaque()) {
+            ancestor = ancestor.getParent();
+        }
+        Color background = ancestor == null ? getBackground() : ancestor.getBackground();
+        double luminance = 0.2126 * background.getRed()
+                + 0.7152 * background.getGreen()
+                + 0.0722 * background.getBlue();
+        lblPorcentaje.setForeground(luminance < 140 ? Color.WHITE : Color.BLACK);
     }
 }

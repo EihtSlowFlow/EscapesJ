@@ -8,7 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.*;
+import java.awt.*;
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,7 +34,10 @@ public class ZoomManagerTest {
 
     @AfterEach
     public void tearDown() throws Exception {
+        ZoomManager.setPersistenceErrorHandler(error -> { });
         ZoomManager.restablecer(); // Asegurar 100% para evitar afectar otros tests
+        SwingUtilities.invokeAndWait(() -> { });
+        ZoomManager.setPersistenceErrorHandler(null);
         DatabaseService.setCustomDbUrl(null);
         DatabaseService.reiniciarTest();
     }
@@ -119,5 +125,58 @@ public class ZoomManagerTest {
         configRepo.guardar("ui.scale_percent", "100");
         ZoomManager.inicializar(configRepo);
         assertEquals(16, UIManager.getDefaults().getInt("Table.rowHeight"));
+    }
+
+    @Test
+    public void testEscalaComponentesSwingConValoresExplicitos() {
+        configRepo.guardar("ui.scale_percent", "100");
+        ZoomManager.inicializar(configRepo);
+
+        JPanel panel = new JPanel();
+        JButton button = new JButton("Guardar");
+        button.setFont(new Font("SansSerif", Font.BOLD, 13));
+        button.setPreferredSize(new Dimension(100, 30));
+        JTable table = new JTable(2, 2);
+        table.setRowHeight(30);
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        panel.add(button);
+        panel.add(table);
+
+        ZoomManager.aumentar();
+        ZoomManager.applyScaleToTree(panel);
+
+        assertEquals(14.3f, button.getFont().getSize2D(), 0.01f);
+        assertEquals(new Dimension(110, 33), button.getPreferredSize());
+        assertEquals(33, table.getRowHeight());
+        assertEquals(13.2f, table.getTableHeader().getFont().getSize2D(), 0.01f);
+
+        ZoomManager.aumentar();
+        ZoomManager.applyScaleToTree(panel);
+        assertEquals(15.6f, button.getFont().getSize2D(), 0.01f);
+        assertEquals(36, table.getRowHeight());
+    }
+
+    @Test
+    public void testFalloDePersistenciaNoImpideAplicarZoom() throws Exception {
+        AtomicInteger reportedErrors = new AtomicInteger();
+        ZoomManager.setPersistenceErrorHandler(error -> reportedErrors.incrementAndGet());
+        ConfigRepository failingRepository = new ConfigRepository() {
+            @Override
+            public Optional<String> obtener(String clave) {
+                return Optional.of("100");
+            }
+
+            @Override
+            public void guardar(String clave, String valor) {
+                throw new io.github.ramiro.escapesj.persistencia.PersistenceException("fallo simulado");
+            }
+        };
+        ZoomManager.inicializar(failingRepository);
+
+        assertDoesNotThrow(ZoomManager::aumentar);
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertEquals(110, ZoomManager.getScalePercent());
+        assertEquals(1, reportedErrors.get());
     }
 }

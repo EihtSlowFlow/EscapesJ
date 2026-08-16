@@ -40,7 +40,7 @@ public class VentanaMenu extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Menú Principal");
-        setSize(550, 800);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));

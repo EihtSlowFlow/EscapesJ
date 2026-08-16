@@ -297,6 +297,34 @@ public class VentanaConfiguracion extends JFrame {
 
         tabbedPane.addTab("Directorios", pnlDirectorios);
 
+        // === SECCIÓN APARIENCIA ===
+        JPanel pnlApariencia = new JPanel(new GridBagLayout());
+        pnlApariencia.setBackground(new Color(0, 43, 91));
+        pnlApariencia.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
+        GridBagConstraints appearanceConstraints = new GridBagConstraints();
+        appearanceConstraints.gridx = 0;
+        appearanceConstraints.gridy = 0;
+        appearanceConstraints.weightx = 1.0;
+        appearanceConstraints.anchor = GridBagConstraints.CENTER;
+
+        JLabel lblApariencia = crearLabel("Tamaño de la interfaz");
+        lblApariencia.setFont(new Font("SansSerif", Font.BOLD, 18));
+        pnlApariencia.add(lblApariencia, appearanceConstraints);
+
+        appearanceConstraints.gridy = 1;
+        appearanceConstraints.insets = new Insets(15, 0, 10, 0);
+        pnlApariencia.add(new ZoomControls(), appearanceConstraints);
+
+        appearanceConstraints.gridy = 2;
+        appearanceConstraints.insets = new Insets(5, 0, 0, 0);
+        JLabel lblAtajos = crearLabel("Atajos: Ctrl + +, Ctrl + - y Ctrl + 0");
+        pnlApariencia.add(lblAtajos, appearanceConstraints);
+
+        appearanceConstraints.gridy = 3;
+        appearanceConstraints.weighty = 1.0;
+        pnlApariencia.add(Box.createVerticalGlue(), appearanceConstraints);
+        tabbedPane.addTab("Apariencia", pnlApariencia);
+
         add(tabbedPane, BorderLayout.CENTER);
     }
 

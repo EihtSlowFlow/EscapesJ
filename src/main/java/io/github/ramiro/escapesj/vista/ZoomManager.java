@@ -1,15 +1,21 @@
 package io.github.ramiro.escapesj.vista;
 
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import io.github.ramiro.escapesj.persistencia.PersistenceException;
 
 import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
+import javax.swing.plaf.UIResource;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
+import java.awt.event.AWTEventListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 public class ZoomManager {
     private static ConfigRepository configRepo;
@@ -18,6 +24,14 @@ public class ZoomManager {
     private static final int MAX_ZOOM = 200;
     private static final int STEP = 10;
     private static boolean shortcutsRegistered;
+    private static boolean windowListenerRegistered;
+    private static Consumer<PersistenceException> persistenceErrorHandler = ZoomManager::showPersistenceError;
+    private static final String BASE_FONT = "zoom.baseFont";
+    private static final String BASE_ROW_HEIGHT = "zoom.baseRowHeight";
+    private static final String BASE_PREFERRED_SIZE = "zoom.basePreferredSize";
+    private static final String BASE_MINIMUM_SIZE = "zoom.baseMinimumSize";
+    private static final String BASE_MAXIMUM_SIZE = "zoom.baseMaximumSize";
+    private static final String BASE_MARGIN = "zoom.baseMargin";
 
     // Caché inmutable de los valores base para evitar zoom acumulativo
     private static final Map<Object, Object> baseDefaults = new HashMap<>();
@@ -84,6 +98,16 @@ public class ZoomManager {
             shortcutsRegistered = true;
         }
 
+        if (!windowListenerRegistered) {
+            AWTEventListener listener = event -> {
+                if (event.getID() == WindowEvent.WINDOW_OPENED && event.getSource() instanceof Window window) {
+                    applyScaleToTree(window);
+                }
+            };
+            Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.WINDOW_EVENT_MASK);
+            windowListenerRegistered = true;
+        }
+
         // 4. Aplicar siempre: también restaura los defaults si se reinicializa al 100%.
         aplicarEscalaGlobal(false);
     }
@@ -114,13 +138,26 @@ public class ZoomManager {
     }
 
     private static void guardarYAplicar() {
-        if (configRepo != null) {
-            configRepo.guardar("ui.scale_percent", String.valueOf(scalePercent));
-        }
         aplicarEscalaGlobal(true);
         for (ZoomListener l : listeners) {
             l.onZoomChanged(scalePercent);
         }
+        if (configRepo != null) {
+            try {
+                configRepo.guardar("ui.scale_percent", String.valueOf(scalePercent));
+            } catch (PersistenceException e) {
+                SwingUtilities.invokeLater(() -> persistenceErrorHandler.accept(e));
+            }
+        }
+    }
+
+    private static void showPersistenceError(PersistenceException error) {
+        ErrorHandler.mostrarErrorPersistencia(
+                null, "guardar la preferencia de zoom; el cambio se mantendrá durante esta sesión", error);
+    }
+
+    static void setPersistenceErrorHandler(Consumer<PersistenceException> handler) {
+        persistenceErrorHandler = handler == null ? ZoomManager::showPersistenceError : handler;
     }
 
     private static void aplicarEscalaGlobal(boolean updateWindows) {
@@ -146,11 +183,98 @@ public class ZoomManager {
             SwingUtilities.invokeLater(() -> {
                 for (Window window : Window.getWindows()) {
                     SwingUtilities.updateComponentTreeUI(window);
+                    applyScaleToTree(window);
                     window.revalidate();
                     window.repaint();
                     // No usamos pack() aquí en ventanas principales para no perder el maximizado
                 }
             });
+        }
+    }
+
+    static void applyScaleToTree(Component component) {
+        if (component instanceof JComponent swingComponent) {
+            scaleExplicitFont(swingComponent);
+            scaleExplicitSizes(swingComponent);
+            scaleMargin(swingComponent);
+            scaleTable(swingComponent);
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                applyScaleToTree(child);
+            }
+        }
+    }
+
+    private static void scaleExplicitFont(JComponent component) {
+        Font base = (Font) component.getClientProperty(BASE_FONT);
+        Font current = component.getFont();
+        if (base == null && current != null && !(current instanceof UIResource)) {
+            base = current;
+            component.putClientProperty(BASE_FONT, base);
+        }
+        if (base != null) {
+            component.setFont(scaledFont(base));
+        }
+    }
+
+    private static void scaleExplicitSizes(JComponent component) {
+        scaleDimensionProperty(component, BASE_PREFERRED_SIZE, component.isPreferredSizeSet(), component.getPreferredSize(), component::setPreferredSize);
+        scaleDimensionProperty(component, BASE_MINIMUM_SIZE, component.isMinimumSizeSet(), component.getMinimumSize(), component::setMinimumSize);
+        scaleDimensionProperty(component, BASE_MAXIMUM_SIZE, component.isMaximumSizeSet(), component.getMaximumSize(), component::setMaximumSize);
+    }
+
+    private static void scaleDimensionProperty(JComponent component, String key, boolean explicitlySet,
+                                               Dimension current, java.util.function.Consumer<Dimension> setter) {
+        Dimension base = (Dimension) component.getClientProperty(key);
+        if (base == null && explicitlySet && current != null) {
+            base = new Dimension(current);
+            component.putClientProperty(key, base);
+        }
+        if (base != null) {
+            setter.accept(scaleDimension(base.width, base.height));
+        }
+    }
+
+    private static void scaleMargin(JComponent component) {
+        Insets current = null;
+        if (component instanceof AbstractButton button) {
+            current = button.getMargin();
+        } else if (component instanceof JTextComponent textComponent) {
+            current = textComponent.getMargin();
+        }
+        if (current == null) {
+            return;
+        }
+        Insets base = (Insets) component.getClientProperty(BASE_MARGIN);
+        if (base == null) {
+            base = new Insets(current.top, current.left, current.bottom, current.right);
+            component.putClientProperty(BASE_MARGIN, base);
+        }
+        Insets scaled = new Insets(scale(base.top), scale(base.left), scale(base.bottom), scale(base.right));
+        if (component instanceof AbstractButton button) {
+            button.setMargin(scaled);
+        } else {
+            ((JTextComponent) component).setMargin(scaled);
+        }
+    }
+
+    private static void scaleTable(JComponent component) {
+        if (!(component instanceof JTable table)) {
+            return;
+        }
+        Integer base = (Integer) table.getClientProperty(BASE_ROW_HEIGHT);
+        int defaultHeight = UIManager.getDefaults().getInt("Table.rowHeight");
+        if (base == null && table.getRowHeight() != defaultHeight) {
+            base = table.getRowHeight();
+            table.putClientProperty(BASE_ROW_HEIGHT, base);
+        }
+        if (base != null) {
+            table.setRowHeight(scale(base));
+        }
+        if (table.getTableHeader() != null) {
+            scaleExplicitFont(table.getTableHeader());
+            scaleExplicitSizes(table.getTableHeader());
         }
     }
 

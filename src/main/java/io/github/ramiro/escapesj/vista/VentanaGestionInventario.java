@@ -81,7 +81,7 @@ public class VentanaGestionInventario extends JFrame {
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollTabla, scrollNuevo);
         splitPane.setBorder(null);
         splitPane.setResizeWeight(0.75);
-        splitPane.setDividerLocation(0.75);
+        SwingUtilities.invokeLater(() -> splitPane.setDividerLocation(0.75));
         add(splitPane, BorderLayout.CENTER);
     }
 

@@ -5,6 +5,7 @@ import java.awt.*;
 
 public class ZoomControls extends JPanel implements ZoomManager.ZoomListener {
     private final JLabel lblPorcentaje;
+    private boolean listenerRegistered;
 
     public ZoomControls() {
         setOpaque(false);
@@ -36,7 +37,25 @@ public class ZoomControls extends JPanel implements ZoomManager.ZoomListener {
         add(btnReset);
         add(btnMas);
 
-        ZoomManager.addListener(this);
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        if (!listenerRegistered) {
+            ZoomManager.addListener(this);
+            listenerRegistered = true;
+        }
+        lblPorcentaje.setText(ZoomManager.getScalePercent() + "%");
+    }
+
+    @Override
+    public void removeNotify() {
+        if (listenerRegistered) {
+            ZoomManager.removeListener(this);
+            listenerRegistered = false;
+        }
+        super.removeNotify();
     }
 
     @Override

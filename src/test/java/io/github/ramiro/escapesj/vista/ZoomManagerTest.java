@@ -83,7 +83,7 @@ public class ZoomManagerTest {
         // Forzamos un reset del ZoomManager
         configRepo.guardar("ui.scale_percent", "100");
         ZoomManager.inicializar(configRepo);
-        
+
         int baseHeight = 16;
         UIManager.getDefaults().put("Table.rowHeight", baseHeight);
 
@@ -95,5 +95,29 @@ public class ZoomManagerTest {
         ZoomManager.aumentar(); // 120%
         int expected120 = (int) (baseHeight * 1.2f);
         assertEquals(expected120, UIManager.getDefaults().getInt("Table.rowHeight"));
+    }
+
+    @Test
+    public void testLimitesConValorPersistidoNoAlineadoAlPaso() {
+        configRepo.guardar("ui.scale_percent", "195");
+        ZoomManager.inicializar(configRepo);
+        ZoomManager.aumentar();
+        assertEquals(200, ZoomManager.getScalePercent());
+
+        configRepo.guardar("ui.scale_percent", "85");
+        ZoomManager.inicializar(configRepo);
+        ZoomManager.reducir();
+        assertEquals(80, ZoomManager.getScalePercent());
+    }
+
+    @Test
+    public void testReinicializarAlCienRestauraAlturaBase() {
+        configRepo.guardar("ui.scale_percent", "120");
+        ZoomManager.inicializar(configRepo);
+        assertEquals(19, UIManager.getDefaults().getInt("Table.rowHeight"));
+
+        configRepo.guardar("ui.scale_percent", "100");
+        ZoomManager.inicializar(configRepo);
+        assertEquals(16, UIManager.getDefaults().getInt("Table.rowHeight"));
     }
 }

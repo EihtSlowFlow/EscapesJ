@@ -77,6 +77,7 @@ public class VentanaMenu extends JFrame {
         pnlBotones.add(btnPresupuesto);
         pnlBotones.add(btnInv);
         pnlBotones.add(btnServ);
+        pnlBotones.add(btnConfig);
         gbc.gridy = 1;
         gbc.weighty = 0.0;
         gbc.fill = GridBagConstraints.NONE;

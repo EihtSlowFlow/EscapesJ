@@ -6,10 +6,10 @@ import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import java.awt.*;
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ZoomManager {
     private static ConfigRepository configRepo;
@@ -17,6 +17,7 @@ public class ZoomManager {
     private static final int MIN_ZOOM = 80;
     private static final int MAX_ZOOM = 200;
     private static final int STEP = 10;
+    private static boolean shortcutsRegistered;
 
     // Caché inmutable de los valores base para evitar zoom acumulativo
     private static final Map<Object, Object> baseDefaults = new HashMap<>();
@@ -24,10 +25,14 @@ public class ZoomManager {
     public interface ZoomListener {
         void onZoomChanged(int newPercent);
     }
-    private static final List<ZoomListener> listeners = new ArrayList<>();
+    private static final CopyOnWriteArrayList<ZoomListener> listeners = new CopyOnWriteArrayList<>();
 
     public static void addListener(ZoomListener listener) {
-        listeners.add(listener);
+        listeners.addIfAbsent(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public static void removeListener(ZoomListener listener) {
+        listeners.remove(listener);
     }
 
     public static void inicializar(ConfigRepository repo) {
@@ -60,26 +65,27 @@ public class ZoomManager {
         }
 
         // 3. Registrar atajos globales
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventPostProcessor(e -> {
-            if (e.getID() == KeyEvent.KEY_PRESSED && e.isControlDown()) {
-                if (e.getKeyCode() == KeyEvent.VK_ADD || e.getKeyCode() == KeyEvent.VK_PLUS || e.getKeyCode() == KeyEvent.VK_EQUALS) {
-                    aumentar();
-                    return true;
-                } else if (e.getKeyCode() == KeyEvent.VK_SUBTRACT || e.getKeyCode() == KeyEvent.VK_MINUS) {
-                    reducir();
-                    return true;
-                } else if (e.getKeyCode() == KeyEvent.VK_0 || e.getKeyCode() == KeyEvent.VK_NUMPAD0) {
-                    restablecer();
-                    return true;
+        if (!shortcutsRegistered) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventPostProcessor(e -> {
+                if (e.getID() == KeyEvent.KEY_PRESSED && e.isControlDown()) {
+                    if (e.getKeyCode() == KeyEvent.VK_ADD || e.getKeyCode() == KeyEvent.VK_PLUS || e.getKeyCode() == KeyEvent.VK_EQUALS) {
+                        aumentar();
+                        return true;
+                    } else if (e.getKeyCode() == KeyEvent.VK_SUBTRACT || e.getKeyCode() == KeyEvent.VK_MINUS) {
+                        reducir();
+                        return true;
+                    } else if (e.getKeyCode() == KeyEvent.VK_0 || e.getKeyCode() == KeyEvent.VK_NUMPAD0) {
+                        restablecer();
+                        return true;
+                    }
                 }
-            }
-            return false;
-        });
-
-        // 4. Aplicar (si es distinto a 100%)
-        if (scalePercent != 100) {
-            aplicarEscalaGlobal(false);
+                return false;
+            });
+            shortcutsRegistered = true;
         }
+
+        // 4. Aplicar siempre: también restaura los defaults si se reinicializa al 100%.
+        aplicarEscalaGlobal(false);
     }
 
     public static int getScalePercent() {
@@ -88,14 +94,14 @@ public class ZoomManager {
 
     public static void aumentar() {
         if (scalePercent < MAX_ZOOM) {
-            scalePercent += STEP;
+            scalePercent = Math.min(MAX_ZOOM, scalePercent + STEP);
             guardarYAplicar();
         }
     }
 
     public static void reducir() {
         if (scalePercent > MIN_ZOOM) {
-            scalePercent -= STEP;
+            scalePercent = Math.max(MIN_ZOOM, scalePercent - STEP);
             guardarYAplicar();
         }
     }

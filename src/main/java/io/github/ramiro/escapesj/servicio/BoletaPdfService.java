@@ -30,7 +30,7 @@ public class BoletaPdfService {
                                      String carpetaDestino, Emisor emisor) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {
-            carpetaDestino = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
+            carpetaDestino = io.github.ramiro.escapesj.persistencia.ConfigRepository.getDefaultBoletasPath();
         }
 
         java.io.File dir = new java.io.File(carpetaDestino);

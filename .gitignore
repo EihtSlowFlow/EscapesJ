@@ -14,3 +14,4 @@ boletas/
 presupuestos/
 escapesj.log
 *.tar.gz
+.agents

@@ -239,12 +239,23 @@ public class VentanaConfiguracion extends JFrame {
         pnlBoletasDir.setOpaque(false);
         txtRutaBoletas = new JTextField();
         estilizarCampo(txtRutaBoletas);
-        txtRutaBoletas.setEditable(false);
         pnlBoletasDir.add(txtRutaBoletas, BorderLayout.CENTER);
+
+        JPanel pnlBotonesBoletas = new JPanel(new GridLayout(1, 2, 5, 0));
+        pnlBotonesBoletas.setOpaque(false);
+        
+        JButton btnRestaurarBoletas = new JButton("🔄");
+        btnRestaurarBoletas.setToolTipText("Restablecer ruta por defecto");
+        btnRestaurarBoletas.setPreferredSize(new Dimension(45, 30));
+        btnRestaurarBoletas.addActionListener(e -> txtRutaBoletas.setText(ConfigRepository.getDefaultBoletasPath()));
+        pnlBotonesBoletas.add(btnRestaurarBoletas);
+
         JButton btnBoletasDir = new JButton("📂");
         btnBoletasDir.setPreferredSize(new Dimension(45, 30));
         btnBoletasDir.addActionListener(e -> elegirDirectorio(txtRutaBoletas));
-        pnlBoletasDir.add(btnBoletasDir, BorderLayout.EAST);
+        pnlBotonesBoletas.add(btnBoletasDir);
+
+        pnlBoletasDir.add(pnlBotonesBoletas, BorderLayout.EAST);
         pnlDirectorios.add(pnlBoletasDir, gbc);
 
         gbc.gridy = 2;
@@ -254,12 +265,23 @@ public class VentanaConfiguracion extends JFrame {
         pnlPresupDir.setOpaque(false);
         txtRutaPresupuestos = new JTextField();
         estilizarCampo(txtRutaPresupuestos);
-        txtRutaPresupuestos.setEditable(false);
         pnlPresupDir.add(txtRutaPresupuestos, BorderLayout.CENTER);
+
+        JPanel pnlBotonesPresup = new JPanel(new GridLayout(1, 2, 5, 0));
+        pnlBotonesPresup.setOpaque(false);
+
+        JButton btnRestaurarPresup = new JButton("🔄");
+        btnRestaurarPresup.setToolTipText("Restablecer ruta por defecto");
+        btnRestaurarPresup.setPreferredSize(new Dimension(45, 30));
+        btnRestaurarPresup.addActionListener(e -> txtRutaPresupuestos.setText(ConfigRepository.getDefaultPresupuestosPath()));
+        pnlBotonesPresup.add(btnRestaurarPresup);
+
         JButton btnPresupDir = new JButton("📂");
         btnPresupDir.setPreferredSize(new Dimension(45, 30));
         btnPresupDir.addActionListener(e -> elegirDirectorio(txtRutaPresupuestos));
-        pnlPresupDir.add(btnPresupDir, BorderLayout.EAST);
+        pnlBotonesPresup.add(btnPresupDir);
+
+        pnlPresupDir.add(pnlBotonesPresup, BorderLayout.EAST);
         pnlDirectorios.add(pnlPresupDir, gbc);
 
         gbc.gridy = 4;
@@ -325,18 +347,15 @@ public class VentanaConfiguracion extends JFrame {
         String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
 
         try {
-            java.util.Map<String, String> configs = new java.util.HashMap<>();
-            if (!rutaBoletas.isEmpty()) configs.put("ruta.boletas", rutaBoletas);
-            if (!rutaPresupuestos.isEmpty()) configs.put("ruta.presupuestos", rutaPresupuestos);
-            if (!configs.isEmpty()) {
-                configRepo.guardarMultiples(configs);
-            }
+            configRepo.guardarRutas(rutaBoletas, rutaPresupuestos);
 
             JOptionPane.showMessageDialog(this,
                     "Rutas actualizadas correctamente.",
                     "Configuración", JOptionPane.INFORMATION_MESSAGE);
         } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
             ErrorHandler.mostrarErrorPersistencia(this, "guardar rutas", e);
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Ruta inválida", JOptionPane.WARNING_MESSAGE);
         }
     }
 

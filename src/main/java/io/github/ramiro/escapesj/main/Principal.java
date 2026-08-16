@@ -35,6 +35,8 @@ public class Principal {
 
             AfipService afipService = new AfipService(configRepo, cacheRepo);
 
+            io.github.ramiro.escapesj.vista.ZoomManager.inicializar(configRepo);
+
             if (usuarioRepo.isUsuariosEmpty()) {
                 SwingUtilities.invokeLater(() -> {
                     VentanaSetupInicial setup = new VentanaSetupInicial(usuarioRepo);

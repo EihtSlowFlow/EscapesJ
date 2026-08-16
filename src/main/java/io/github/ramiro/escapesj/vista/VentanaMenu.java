@@ -79,12 +79,14 @@ public class VentanaMenu extends JFrame {
         pnlBotones.add(btnServ);
         pnlBotones.add(btnConfig);
 
-        gbc.gridy = 1;
-        gbc.weighty = 0.0;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.insets = new Insets(0, 0, 40, 0);
-        gbc.anchor = GridBagConstraints.PAGE_END;
-        add(pnlBotones, gbc);
+        add(pnlLogoContainer, BorderLayout.CENTER);
+        add(pnlBotones, BorderLayout.SOUTH);
+
+        // Controles de zoom
+        JPanel pnlZoom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        pnlZoom.setOpaque(false);
+        pnlZoom.add(new io.github.ramiro.escapesj.vista.ZoomControls());
+        add(pnlZoom, BorderLayout.NORTH);
     }
 
     private JButton crearBotonMenu(String texto, Color color) {

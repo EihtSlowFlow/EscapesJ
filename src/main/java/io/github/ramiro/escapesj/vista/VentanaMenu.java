@@ -62,10 +62,10 @@ public class VentanaMenu extends JFrame {
         pnlBotones.setPreferredSize(new Dimension(360, 300));
 
         JButton btnVenta = crearBotonMenu("Registrar Venta / Servicio", new Color(231, 76, 60));
-        JButton btnPresupuesto = crearBotonMenu("📄  Generar Presupuesto", new Color(155, 89, 182));
+        JButton btnPresupuesto = crearBotonMenu("Generar Presupuesto", new Color(155, 89, 182));
         JButton btnInv = crearBotonMenu("Gestionar Inventario", new Color(52, 152, 219));
         JButton btnServ = crearBotonMenu("Gestionar Servicios (Historial)", new Color(46, 204, 113));
-        JButton btnConfig = crearBotonMenu("⚙  Configuración", new Color(149, 165, 166));
+        JButton btnConfig = crearBotonMenu("Configuración", new Color(149, 165, 166));
 
         btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo, configRepo).setVisible(true));
         btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo, configRepo).setVisible(true));

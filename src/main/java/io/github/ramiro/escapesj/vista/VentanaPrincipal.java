@@ -125,7 +125,7 @@ public class VentanaPrincipal extends JFrame {
         // Botón Buscar
         gbc.gridx = 1; gbc.weightx = 0;
         gbc.insets = new Insets(14, 0, 0, 6);
-        JButton btnBuscarDni = new JButton("🔍 Buscar");
+        JButton btnBuscarDni = new JButton("Buscar");
         btnBuscarDni.setBackground(new Color(52, 152, 219));
         btnBuscarDni.setForeground(Color.WHITE);
         btnBuscarDni.setFont(new Font("SansSerif", Font.BOLD, 11));
@@ -207,7 +207,7 @@ public class VentanaPrincipal extends JFrame {
 
         gbc.gridx = 1; gbc.weightx = 0;
         gbc.insets = new Insets(14, 0, 0, 6);
-        JButton btnBuscarProd = new JButton("📦 Buscar");
+        JButton btnBuscarProd = new JButton("Buscar");
         btnBuscarProd.setBackground(new Color(46, 125, 50));
         btnBuscarProd.setForeground(Color.WHITE);
         btnBuscarProd.setFont(new Font("SansSerif", Font.BOLD, 11));
@@ -275,7 +275,7 @@ public class VentanaPrincipal extends JFrame {
         });
 
         // Botón Agregar
-        JButton btnAgregar = new JButton("➕  Agregar a la Orden");
+        JButton btnAgregar = new JButton("Agregar a la Orden");
         btnAgregar.setBackground(new Color(231, 76, 60));
         btnAgregar.setForeground(Color.WHITE);
         btnAgregar.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -310,7 +310,7 @@ public class VentanaPrincipal extends JFrame {
         lblOrden.setBorder(BorderFactory.createEmptyBorder(5, 10, 3, 0));
         pnlOrdenHeader.add(lblOrden, BorderLayout.WEST);
 
-        JButton btnQuitar = new JButton("❌ Quitar Seleccionado");
+        JButton btnQuitar = new JButton("Quitar Seleccionado");
         btnQuitar.setBackground(new Color(192, 57, 43));
         btnQuitar.setForeground(Color.WHITE);
         btnQuitar.setFont(new Font("SansSerif", Font.BOLD, 11));
@@ -340,8 +340,8 @@ public class VentanaPrincipal extends JFrame {
         cargarEmisores();
         pnlEmisor.add(comboEmisores);
 
-        JButton btnAgregarEmisor = new JButton("➕");
-        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        JButton btnAgregarEmisor = new JButton("Nuevo");
+        btnAgregarEmisor.setToolTipText("Crear nuevo emisor");
         btnAgregarEmisor.addActionListener(e -> {
             DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
                 cargarEmisores();
@@ -354,7 +354,7 @@ public class VentanaPrincipal extends JFrame {
         pnlInferiorOpciones.add(pnlEmisor, BorderLayout.NORTH);
 
         // Botón Finalizar Boleta
-        JButton btnFinalizar = new JButton("🧾  Finalizar y Generar Boleta");
+        JButton btnFinalizar = new JButton("Finalizar y Generar Boleta");
         btnFinalizar.setBackground(new Color(46, 204, 113));
         btnFinalizar.setForeground(Color.WHITE);
         btnFinalizar.setFont(new Font("SansSerif", Font.BOLD, 14));

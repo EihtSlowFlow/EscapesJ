@@ -32,8 +32,7 @@ public class DatabaseServiceTest {
 
     @Test
     public void testGetConnection_FalloConexionLanzaPersistenceException() {
-        // Forzamos una URL inválida (por ejemplo, sin jdbc:sqlite:)
-        DatabaseService.setCustomDbUrl("jdbc:sqlite:/ruta/invalida/db/que/no/existe.db");
+        DatabaseService.setCustomDbUrl("jdbc:inexistente:");
         
         Exception exception = assertThrows(PersistenceException.class, () -> {
             DatabaseService.getConnection();

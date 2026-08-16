@@ -227,7 +227,9 @@ public class UsuarioRepository {
                     try (PreparedStatement ps = connection.prepareStatement(sqlUsr)) {
                         ps.setString(1, usuarioNuevo);
                         ps.setString(2, usuarioActual);
-                        ps.executeUpdate();
+                        if (ps.executeUpdate() == 0) {
+                            throw new PersistenceException("No se encontró el usuario actual para actualizar el nombre");
+                        }
                     }
                 }
                 String usuarioDestino = (usuarioNuevo != null && !usuarioNuevo.isBlank()) ? usuarioNuevo : usuarioActual;
@@ -239,7 +241,9 @@ public class UsuarioRepository {
                     try (PreparedStatement ps = connection.prepareStatement(sqlPwd)) {
                         ps.setString(1, hashNueva);
                         ps.setString(2, usuarioDestino);
-                        ps.executeUpdate();
+                        if (ps.executeUpdate() == 0) {
+                            throw new PersistenceException("No se encontró el usuario para actualizar la contraseña");
+                        }
                     }
                 }
 
@@ -252,7 +256,9 @@ public class UsuarioRepository {
                         ps.setString(1, pregunta);
                         ps.setString(2, respuestaHash);
                         ps.setString(3, usuarioDestino);
-                        ps.executeUpdate();
+                        if (ps.executeUpdate() == 0) {
+                            throw new PersistenceException("No se encontró el usuario para actualizar la pregunta de seguridad");
+                        }
                     }
                 }
                 return null;

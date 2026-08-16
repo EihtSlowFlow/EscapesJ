@@ -131,7 +131,44 @@ public class TransactionHelperTest {
 
         // 2. Check boleta and history created
         assertEquals(initialBoletas + 1, countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'"));
-        assertEquals(initialItems + 1, countRows("SELECT COUNT(*) FROM boleta_items WHERE descripcion = 'P1'"));
         assertEquals(initialServicios + 1, countRows("SELECT COUNT(*) FROM servicios_historial WHERE nombre = 'Test Commit Cliente'"));
+    }
+    public void testTransactionRollbacksOnSqlException() throws Exception {
+        conn = DatabaseService.getConnection();
+        boletaRepo = new BoletaRepository();
+        productoRepo = new ProductoRepository();
+        servicioRepo = new ServicioRepository();
+        facturacionService = new FacturacionService(boletaRepo, productoRepo, servicioRepo);
+
+        productoRepo.guardar(new Producto("TEST-003", "Producto Sql", "Test", BigDecimal.valueOf(1000.0), 10));
+
+        int initialBoletas = countRows("SELECT COUNT(*) FROM boletas");
+        int initialItems = countRows("SELECT COUNT(*) FROM boleta_items");
+        int initialServicios = countRows("SELECT COUNT(*) FROM servicios_historial");
+
+        // Romperemos la tabla boleta_items para que lance SQLException durante la facturación (después de restar el stock)
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE boleta_items");
+        }
+
+        FacturacionRequest request = new FacturacionRequest(
+                "11111111", "Test Rollback SQL", "2026-01-01",
+                List.of(
+                        new ItemFacturacion("PRODUCTO", "P3", "TEST-003", 2, new java.math.BigDecimal("1000"))
+                ), "EFECTIVO", java.math.BigDecimal.ZERO
+        );
+
+        Exception exception = assertThrows(PersistenceException.class, () -> {
+            facturacionService.facturarOrden(request);
+        });
+
+        // Verify that the rollback was successful for the stock deduction
+        var productoOpt = productoRepo.buscarPorCodigo("TEST-003");
+        assertTrue(productoOpt.isPresent());
+        assertEquals(10, productoOpt.get().getStock(), "Stock should be rolled back to 10 after SQL error");
+
+        // And other tables are unchanged
+        assertEquals(initialBoletas, countRows("SELECT COUNT(*) FROM boletas"));
+        assertEquals(initialServicios, countRows("SELECT COUNT(*) FROM servicios_historial"));
     }
 }

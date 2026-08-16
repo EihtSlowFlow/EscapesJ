@@ -44,8 +44,7 @@ public class ServicioRepository {
             ps.setString(4, s.getFecha());
             ps.executeUpdate();
         } catch (SQLException e) {
-            logger.error("Error:", e);
-            logger.error("Error obteniendo número de presupuesto:", e);
+            logger.error("Error registrando servicio:", e);
             throw new PersistenceException("Error registrando servicio", e);
         }
     }

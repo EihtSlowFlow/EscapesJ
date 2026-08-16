@@ -50,4 +50,33 @@ public class ConfigRepositoryTest {
         assertEquals("valorOriginal1", configRepo.obtener("clave1").orElse(null));
         assertTrue(configRepo.obtener("clave2").isEmpty());
     }
+
+    @Test
+    public void testRutasPorDefectoPortables() {
+        // Al no existir en la base de datos, deben resolverse usando FileSystemView / user.home
+        String boletas = configRepo.getRutaBoletas();
+        String presupuestos = configRepo.getRutaPresupuestos();
+        
+        assertNotNull(boletas);
+        assertTrue(boletas.contains("escapesJ"));
+        assertTrue(boletas.contains("boletas"));
+        
+        assertNotNull(presupuestos);
+        assertTrue(presupuestos.contains("escapesJ"));
+        assertTrue(presupuestos.contains("presupuestos"));
+    }
+
+    @Test
+    public void testRestablecerRutaGuardandoVacio() {
+        // Simulamos que el usuario tenía una ruta personalizada
+        configRepo.guardar("ruta.boletas", "C:\\Custom\\Path");
+        assertEquals("C:\\Custom\\Path", configRepo.getRutaBoletas());
+        
+        // Ahora simulamos que el usuario la borra desde la UI y guarda un string vacío
+        configRepo.guardar("ruta.boletas", "");
+        
+        // Debe retornar el default, ya que el string vacío se interpreta como ausencia de configuración
+        assertNotEquals("C:\\Custom\\Path", configRepo.getRutaBoletas());
+        assertEquals(ConfigRepository.getDefaultBoletasPath(), configRepo.getRutaBoletas());
+    }
 }

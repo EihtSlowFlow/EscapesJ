@@ -114,14 +114,28 @@ public class ConfigRepository {
         return obtener("afip.key_path").orElse("");
     }
 
+    public static String getDefaultDocumentsPath() {
+        java.io.File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
+        if (docs != null && docs.exists()) {
+            return docs.getAbsolutePath();
+        }
+        return System.getProperty("user.home") + java.io.File.separator + "Documents";
+    }
+
+    public static String getDefaultBoletasPath() {
+        return getDefaultDocumentsPath() + java.io.File.separator + "escapesJ" + java.io.File.separator + "boletas" + java.io.File.separator;
+    }
+
+    public static String getDefaultPresupuestosPath() {
+        return getDefaultDocumentsPath() + java.io.File.separator + "escapesJ" + java.io.File.separator + "presupuestos" + java.io.File.separator;
+    }
+
     /**
      * Obtiene la ruta donde se guardarán las boletas.
      * Fallback: carpeta Documentos del usuario.
      */
     public String getRutaBoletas() {
-        return obtener("ruta.boletas").orElse(
-                System.getProperty("user.home") + "/Documentos/escapesJ/boletas/"
-        );
+        return obtener("ruta.boletas").orElse(getDefaultBoletasPath());
     }
 
     /**
@@ -129,8 +143,6 @@ public class ConfigRepository {
      * Fallback: carpeta Documentos del usuario.
      */
     public String getRutaPresupuestos() {
-        return obtener("ruta.presupuestos").orElse(
-                System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/"
-        );
+        return obtener("ruta.presupuestos").orElse(getDefaultPresupuestosPath());
     }
 }

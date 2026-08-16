@@ -9,6 +9,7 @@ import java.awt.*;
 public class VentanaModificarProducto extends JDialog {
     private final ProductoRepository repository;
     private final Producto productoOriginal;
+    private JPanel content;
     private JTextField txtCod, txtNom, txtDesc, txtPre, txtStock;
     private boolean actualizado = false;
 
@@ -21,8 +22,8 @@ public class VentanaModificarProducto extends JDialog {
     }
 
     private void initUI() {
-        getContentPane().setBackground(new Color(30, 35, 48)); // Un tono más oscuro para distinguir
-        setLayout(new GridBagLayout());
+        content = new JPanel(new GridBagLayout());
+        content.setBackground(new Color(30, 35, 48)); // Un tono más oscuro para distinguir
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 15, 10, 15);
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -40,13 +41,13 @@ public class VentanaModificarProducto extends JDialog {
         btnGuardar.addActionListener(e -> procesarActualizacion());
 
         gbc.gridy = 10;
-        add(btnGuardar, gbc);
+        content.add(btnGuardar, gbc);
 
-        pack();
-        Dimension minimumSize = ZoomManager.scaleDimension(400, 500);
-        setMinimumSize(minimumSize);
-        setSize(Math.max(getWidth(), minimumSize.width), Math.max(getHeight(), minimumSize.height));
-        setLocationRelativeTo(getOwner());
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        setContentPane(scrollPane);
+        ZoomManager.packAndFitToScreen(this, 400, 500);
     }
 
     private void cargarDatos() {
@@ -86,7 +87,7 @@ public class VentanaModificarProducto extends JDialog {
         gbc.gridy = y;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 15, 0, 15);
-        add(lbl, gbc);
+        content.add(lbl, gbc);
 
         JTextField f = new JTextField(15);
         f.setBackground(new Color(45, 52, 71));
@@ -94,7 +95,7 @@ public class VentanaModificarProducto extends JDialog {
         f.setCaretColor(Color.WHITE);
         gbc.gridy = y + 1;
         gbc.insets = new Insets(0, 15, 5, 15);
-        add(f, gbc);
+        content.add(f, gbc);
         return f;
     }
 

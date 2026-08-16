@@ -15,3 +15,6 @@ presupuestos/
 escapesj.log
 *.tar.gz
 .agents
+
+# Runtime de Windows generado para NSIS
+/windows-installer/runtime/

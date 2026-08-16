@@ -39,6 +39,7 @@ public class PresupuestoRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error generando código único", e);
         }
         return "PRE-0001";
     }
@@ -68,7 +69,7 @@ public class PresupuestoRepository {
             return codigo;
         } catch (Exception e) {
             logger.error("Error:", e);
-            return null;
+            throw new PersistenceException("Error creando presupuesto", e);
         }
     }
 
@@ -100,6 +101,7 @@ public class PresupuestoRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error buscando presupuesto por código", e);
         }
         return null;
     }
@@ -133,6 +135,7 @@ public class PresupuestoRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error buscando presupuesto por DNI", e);
         }
         return lista;
     }

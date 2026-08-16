@@ -28,6 +28,7 @@ public class ConfigRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al obtener configuración", e);
         }
         return Optional.empty();
     }

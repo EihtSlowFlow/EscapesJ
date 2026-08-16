@@ -64,6 +64,7 @@ public class ClienteCacheRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar DNI en cache", e);
         }
         return Optional.empty();
     }
@@ -85,6 +86,7 @@ public class ClienteCacheRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar DNI en cache", e);
         }
     }
 
@@ -99,6 +101,7 @@ public class ClienteCacheRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al eliminar DNI del cache", e);
         }
     }
 
@@ -116,7 +119,7 @@ public class ClienteCacheRepository {
             return ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
-            return 0;
+            throw new PersistenceException("Error al limpiar expirados", e);
         }
     }
 

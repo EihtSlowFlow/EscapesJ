@@ -31,6 +31,7 @@ public class BoletaRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al obtener siguiente número", e);
         }
         return 1;
     }
@@ -40,7 +41,7 @@ public class BoletaRepository {
             return crearBoleta(conn, dni, nombreCliente, fecha, total);
         } catch (Exception e) {
             e.printStackTrace();
-            return -1;
+            throw new PersistenceException("Error creando boleta", e);
         }
     }
 
@@ -65,7 +66,7 @@ public class BoletaRepository {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Error creando boleta", e);
+            throw new PersistenceException("Error creando boleta", e);
         }
         return -1;
     }
@@ -75,6 +76,7 @@ public class BoletaRepository {
             agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
         } catch (Exception e) {
             e.printStackTrace();
+            throw new PersistenceException("Error agregando item", e);
         }
     }
 
@@ -94,7 +96,7 @@ public class BoletaRepository {
             pstmt.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Error agregando item", e);
+            throw new PersistenceException("Error agregando item", e);
         }
     }
 
@@ -103,7 +105,7 @@ public class BoletaRepository {
             return buscarBoletasPorDni(conn, dniBuscado);
         } catch (Exception e) {
             e.printStackTrace();
-            return new ArrayList<>();
+            throw new PersistenceException("Error buscando boletas", e);
         }
     }
 
@@ -127,6 +129,7 @@ public class BoletaRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boletas", e);
         }
         return lista;
     }
@@ -136,7 +139,7 @@ public class BoletaRepository {
             return obtenerItems(conn, boletaId);
         } catch (Exception e) {
             e.printStackTrace();
-            return new ArrayList<>();
+            throw new PersistenceException("Error obteniendo items", e);
         }
     }
 
@@ -166,6 +169,7 @@ public class BoletaRepository {
             }
         } catch (Exception e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error obteniendo items", e);
         }
         return lista;
     }

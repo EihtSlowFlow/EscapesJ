@@ -47,7 +47,7 @@ class EmisorRepositoryTest {
     void propagaElErrorCuandoNoPuedeGuardar() {
         DatabaseService.setCustomDbUrl("jdbc:inexistente");
 
-        assertThrows(IllegalStateException.class, () -> new EmisorRepository().guardar(
+        assertThrows(PersistenceException.class, () -> new EmisorRepository().guardar(
                 new Emisor(0, "Taller Sur", "20123456789", "", "")));
     }
 }

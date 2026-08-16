@@ -26,6 +26,7 @@ public class UsuarioRepository {
             }
         } catch (SQLException e) {
             logger.error("Error comprobando usuarios: ", e);
+            throw new PersistenceException("Error comprobando usuarios", e);
         }
         return true;
     }
@@ -44,7 +45,7 @@ public class UsuarioRepository {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Error creando admin inicial: ", e);
-            return false;
+            throw new PersistenceException("Error creando admin inicial", e);
         }
     }
 
@@ -62,6 +63,7 @@ public class UsuarioRepository {
             }
         } catch (SQLException e) {
             logger.error("Error leyendo debe_cambiar_password: ", e);
+            throw new PersistenceException("Error leyendo debe_cambiar_password", e);
         }
         return false;
     }
@@ -92,6 +94,7 @@ public class UsuarioRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error validando credenciales", e);
         } catch (IllegalArgumentException e) {
             logger.error("Hash de contraseña inválido para el usuario: " + usuario);
         }
@@ -110,6 +113,7 @@ public class UsuarioRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error cambiando password directo", e);
         }
     }
 
@@ -145,7 +149,7 @@ public class UsuarioRepository {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Error:", e);
-            return false;
+            throw new PersistenceException("Error cambiando usuario", e);
         }
     }
 
@@ -166,6 +170,7 @@ public class UsuarioRepository {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            throw new PersistenceException("Error obteniendo pregunta", e);
         }
         return Optional.empty();
     }
@@ -186,7 +191,7 @@ public class UsuarioRepository {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
+            throw new PersistenceException("Error configurando pregunta", e);
         }
     }
 
@@ -208,6 +213,7 @@ public class UsuarioRepository {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            throw new PersistenceException("Error validando respuesta", e);
         }
         return false;
     }

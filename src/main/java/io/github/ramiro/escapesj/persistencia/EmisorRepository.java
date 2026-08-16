@@ -29,7 +29,7 @@ public class EmisorRepository {
                 ));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new PersistenceException("Error listando emisores", e);
         }
         return emisores;
     }
@@ -58,7 +58,7 @@ public class EmisorRepository {
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("No se pudo guardar el emisor", e);
+            throw new PersistenceException("No se pudo guardar el emisor", e);
         }
         throw new IllegalStateException("La base de datos no devolvió el identificador del emisor guardado");
     }

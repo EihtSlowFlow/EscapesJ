@@ -112,8 +112,8 @@ public class VentanaConfiguracion extends JFrame {
         estilizarCampo(txtCertPath);
         txtCertPath.setEditable(false);
         pnlCert.add(txtCertPath, BorderLayout.CENTER);
-        JButton btnCert = new JButton("📂");
-        btnCert.setPreferredSize(new Dimension(45, 30));
+        JButton btnCert = new JButton("Elegir...");
+        btnCert.setToolTipText("Seleccionar archivo de certificado");
         btnCert.addActionListener(e -> elegirArchivoFichero(txtCertPath, "crt"));
         pnlCert.add(btnCert, BorderLayout.EAST);
         pnlAfip.add(pnlCert, gbc);
@@ -129,8 +129,8 @@ public class VentanaConfiguracion extends JFrame {
         estilizarCampo(txtKeyPath);
         txtKeyPath.setEditable(false);
         pnlKey.add(txtKeyPath, BorderLayout.CENTER);
-        JButton btnKey = new JButton("📂");
-        btnKey.setPreferredSize(new Dimension(45, 30));
+        JButton btnKey = new JButton("Elegir...");
+        btnKey.setToolTipText("Seleccionar archivo de llave privada");
         btnKey.addActionListener(e -> elegirArchivoFichero(txtKeyPath, "key"));
         pnlKey.add(btnKey, BorderLayout.EAST);
         pnlAfip.add(pnlKey, gbc);
@@ -244,14 +244,13 @@ public class VentanaConfiguracion extends JFrame {
         JPanel pnlBotonesBoletas = new JPanel(new GridLayout(1, 2, 5, 0));
         pnlBotonesBoletas.setOpaque(false);
         
-        JButton btnRestaurarBoletas = new JButton("🔄");
-        btnRestaurarBoletas.setToolTipText("Restablecer ruta por defecto");
-        btnRestaurarBoletas.setPreferredSize(new Dimension(45, 30));
+        JButton btnRestaurarBoletas = new JButton("Restablecer");
+        btnRestaurarBoletas.setToolTipText("Usar ruta por defecto del sistema");
         btnRestaurarBoletas.addActionListener(e -> txtRutaBoletas.setText(ConfigRepository.getDefaultBoletasPath()));
         pnlBotonesBoletas.add(btnRestaurarBoletas);
 
-        JButton btnBoletasDir = new JButton("📂");
-        btnBoletasDir.setPreferredSize(new Dimension(45, 30));
+        JButton btnBoletasDir = new JButton("Elegir...");
+        btnBoletasDir.setToolTipText("Elegir nueva carpeta para Boletas");
         btnBoletasDir.addActionListener(e -> elegirDirectorio(txtRutaBoletas));
         pnlBotonesBoletas.add(btnBoletasDir);
 
@@ -270,14 +269,13 @@ public class VentanaConfiguracion extends JFrame {
         JPanel pnlBotonesPresup = new JPanel(new GridLayout(1, 2, 5, 0));
         pnlBotonesPresup.setOpaque(false);
 
-        JButton btnRestaurarPresup = new JButton("🔄");
-        btnRestaurarPresup.setToolTipText("Restablecer ruta por defecto");
-        btnRestaurarPresup.setPreferredSize(new Dimension(45, 30));
+        JButton btnRestaurarPresup = new JButton("Restablecer");
+        btnRestaurarPresup.setToolTipText("Usar ruta por defecto del sistema");
         btnRestaurarPresup.addActionListener(e -> txtRutaPresupuestos.setText(ConfigRepository.getDefaultPresupuestosPath()));
         pnlBotonesPresup.add(btnRestaurarPresup);
 
-        JButton btnPresupDir = new JButton("📂");
-        btnPresupDir.setPreferredSize(new Dimension(45, 30));
+        JButton btnPresupDir = new JButton("Elegir...");
+        btnPresupDir.setToolTipText("Elegir nueva carpeta para Presupuestos");
         btnPresupDir.addActionListener(e -> elegirDirectorio(txtRutaPresupuestos));
         pnlBotonesPresup.add(btnPresupDir);
 

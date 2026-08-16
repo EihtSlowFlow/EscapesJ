@@ -21,7 +21,8 @@ public class VentanaModificarProducto extends JDialog {
     }
 
     private void initUI() {
-        setSize(400, 500);
+        pack();
+        setMinimumSize(new Dimension(io.github.ramiro.escapesj.vista.ZoomManager.scale(400), io.github.ramiro.escapesj.vista.ZoomManager.scale(500)));
         setLocationRelativeTo(getOwner());
         getContentPane().setBackground(new Color(30, 35, 48)); // Un tono más oscuro para distinguir
         setLayout(new GridBagLayout());
@@ -82,6 +83,8 @@ public class VentanaModificarProducto extends JDialog {
         gbc.gridy = y;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 15, 0, 15);
+        pack();
+        setMinimumSize(new Dimension(io.github.ramiro.escapesj.vista.ZoomManager.scale(400), io.github.ramiro.escapesj.vista.ZoomManager.scale(300)));
         add(lbl, gbc);
 
         JTextField f = new JTextField(15);

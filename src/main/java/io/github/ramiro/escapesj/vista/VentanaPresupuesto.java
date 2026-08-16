@@ -62,7 +62,7 @@ public class VentanaPresupuesto extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Generar Presupuesto");
-        setSize(780, 720);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 

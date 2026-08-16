@@ -23,7 +23,7 @@ public class VentanaGestionInventario extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Inventario (Modo Separado)");
-        setSize(1100, 650);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
         setLayout(new BorderLayout(15, 15));

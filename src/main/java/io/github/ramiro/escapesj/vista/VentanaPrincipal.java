@@ -69,7 +69,7 @@ public class VentanaPrincipal extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Formulario de Servicio");
-        setSize(780, 750);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 

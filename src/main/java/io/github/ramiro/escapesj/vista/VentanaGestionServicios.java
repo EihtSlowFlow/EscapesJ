@@ -26,7 +26,7 @@ public class VentanaGestionServicios extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Historial de Servicios");
-        setSize(900, 650);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
         setLayout(new BorderLayout(10, 10));

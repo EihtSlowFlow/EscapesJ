@@ -4,6 +4,7 @@ import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -128,6 +129,33 @@ public class ConfigRepository {
 
     public static String getDefaultPresupuestosPath() {
         return getDefaultDocumentsPath() + java.io.File.separator + "escapesJ" + java.io.File.separator + "presupuestos" + java.io.File.separator;
+    }
+
+    /**
+     * Guarda las rutas configuradas. Si una ruta coincide con el valor por defecto,
+     * se persiste vacia para que siga resolviendose dinamicamente en futuros equipos
+     * o ante cambios en la carpeta Documentos del usuario.
+     */
+    public void guardarRutas(String rutaBoletas, String rutaPresupuestos) {
+        Map<String, String> configuraciones = new HashMap<>();
+        configuraciones.put("ruta.boletas", quitarOverrideSiEsDefault(rutaBoletas, getDefaultBoletasPath()));
+        configuraciones.put("ruta.presupuestos", quitarOverrideSiEsDefault(rutaPresupuestos, getDefaultPresupuestosPath()));
+        guardarMultiples(configuraciones);
+    }
+
+    private static String quitarOverrideSiEsDefault(String ruta, String rutaDefault) {
+        String valor = ruta == null ? "" : ruta.trim();
+        if (valor.isEmpty()) {
+            return "";
+        }
+
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get(valor).toAbsolutePath().normalize();
+            java.nio.file.Path defaultPath = java.nio.file.Paths.get(rutaDefault).toAbsolutePath().normalize();
+            return path.equals(defaultPath) ? "" : valor;
+        } catch (java.nio.file.InvalidPathException e) {
+            return valor;
+        }
     }
 
     /**

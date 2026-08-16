@@ -347,11 +347,7 @@ public class VentanaConfiguracion extends JFrame {
         String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
 
         try {
-            java.util.Map<String, String> configs = new java.util.HashMap<>();
-            // Se guardan los valores incluso si están vacíos, para permitir "reset" en la BD.
-            configs.put("ruta.boletas", rutaBoletas);
-            configs.put("ruta.presupuestos", rutaPresupuestos);
-            configRepo.guardarMultiples(configs);
+            configRepo.guardarRutas(rutaBoletas, rutaPresupuestos);
 
             JOptionPane.showMessageDialog(this,
                     "Rutas actualizadas correctamente.",

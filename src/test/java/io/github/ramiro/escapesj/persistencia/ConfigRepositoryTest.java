@@ -79,4 +79,27 @@ public class ConfigRepositoryTest {
         assertNotEquals("C:\\Custom\\Path", configRepo.getRutaBoletas());
         assertEquals(ConfigRepository.getDefaultBoletasPath(), configRepo.getRutaBoletas());
     }
+
+    @Test
+    public void testGuardarRutasDefaultEliminaOverrides() {
+        configRepo.guardar("ruta.boletas", "/ruta/personalizada/boletas");
+        configRepo.guardar("ruta.presupuestos", "/ruta/personalizada/presupuestos");
+
+        configRepo.guardarRutas(
+                ConfigRepository.getDefaultBoletasPath(),
+                ConfigRepository.getDefaultPresupuestosPath());
+
+        assertTrue(configRepo.obtener("ruta.boletas").isEmpty());
+        assertTrue(configRepo.obtener("ruta.presupuestos").isEmpty());
+        assertEquals(ConfigRepository.getDefaultBoletasPath(), configRepo.getRutaBoletas());
+        assertEquals(ConfigRepository.getDefaultPresupuestosPath(), configRepo.getRutaPresupuestos());
+    }
+
+    @Test
+    public void testGuardarRutasConservaOverridesPersonalizados() {
+        configRepo.guardarRutas(" /ruta/boletas ", " /ruta/presupuestos ");
+
+        assertEquals("/ruta/boletas", configRepo.getRutaBoletas());
+        assertEquals("/ruta/presupuestos", configRepo.getRutaPresupuestos());
+    }
 }

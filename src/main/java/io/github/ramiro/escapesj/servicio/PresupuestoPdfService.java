@@ -24,7 +24,7 @@ public class PresupuestoPdfService {
                                      String carpetaDestino, io.github.ramiro.escapesj.modelo.Emisor emisor) {
 
         if (carpetaDestino == null || carpetaDestino.isEmpty()) {
-            carpetaDestino = System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/";
+            carpetaDestino = io.github.ramiro.escapesj.persistencia.ConfigRepository.getDefaultPresupuestosPath();
         }
 
         File dir = new File(carpetaDestino);

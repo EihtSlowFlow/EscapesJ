@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -53,17 +54,13 @@ public class ConfigRepositoryTest {
 
     @Test
     public void testRutasPorDefectoPortables() {
-        // Al no existir en la base de datos, deben resolverse usando FileSystemView / user.home
-        String boletas = configRepo.getRutaBoletas();
-        String presupuestos = configRepo.getRutaPresupuestos();
-        
-        assertNotNull(boletas);
-        assertTrue(boletas.contains("escapesJ"));
-        assertTrue(boletas.contains("boletas"));
-        
-        assertNotNull(presupuestos);
-        assertTrue(presupuestos.contains("escapesJ"));
-        assertTrue(presupuestos.contains("presupuestos"));
+        Path documents = tempDir.resolve("Documentos");
+        assertDoesNotThrow(() -> Files.createDirectory(documents));
+
+        assertEquals(documents.toAbsolutePath().toString(),
+                ConfigRepository.resolverDefaultDocumentsPath(documents.toFile(), tempDir.toString()));
+        assertEquals(tempDir.resolve("Documents").toAbsolutePath().normalize().toString(),
+                ConfigRepository.resolverDefaultDocumentsPath(null, tempDir.toString()));
     }
 
     @Test
@@ -97,9 +94,23 @@ public class ConfigRepositoryTest {
 
     @Test
     public void testGuardarRutasConservaOverridesPersonalizados() {
-        configRepo.guardarRutas(" /ruta/boletas ", " /ruta/presupuestos ");
+        Path boletas = tempDir.resolve("salida").resolve("..").resolve("boletas").toAbsolutePath();
+        Path presupuestos = tempDir.resolve("presupuestos").toAbsolutePath();
+        configRepo.guardarRutas(" " + boletas + " ", " " + presupuestos + " ");
 
-        assertEquals("/ruta/boletas", configRepo.getRutaBoletas());
-        assertEquals("/ruta/presupuestos", configRepo.getRutaPresupuestos());
+        assertEquals(boletas.normalize().toString(), configRepo.getRutaBoletas());
+        assertEquals(presupuestos.normalize().toString(), configRepo.getRutaPresupuestos());
+        assertTrue(Files.isDirectory(boletas.normalize()));
+        assertTrue(Files.isDirectory(presupuestos));
+    }
+
+    @Test
+    public void testGuardarRutasRechazaRutaRelativaYArchivo() throws Exception {
+        assertThrows(IllegalArgumentException.class,
+                () -> configRepo.guardarRutas("relativa/boletas", tempDir.resolve("presupuestos").toString()));
+
+        Path archivo = Files.createFile(tempDir.resolve("archivo.txt"));
+        assertThrows(IllegalArgumentException.class,
+                () -> configRepo.guardarRutas(archivo.toString(), tempDir.resolve("presupuestos").toString()));
     }
 }

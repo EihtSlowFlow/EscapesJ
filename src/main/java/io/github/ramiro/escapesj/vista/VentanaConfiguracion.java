@@ -354,6 +354,8 @@ public class VentanaConfiguracion extends JFrame {
                     "Configuración", JOptionPane.INFORMATION_MESSAGE);
         } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
             ErrorHandler.mostrarErrorPersistencia(this, "guardar rutas", e);
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Ruta inválida", JOptionPane.WARNING_MESSAGE);
         }
     }
 

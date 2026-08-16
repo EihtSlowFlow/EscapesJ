@@ -4,7 +4,12 @@ import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 
@@ -48,6 +53,18 @@ public class ConfigRepository {
     }
 
     /**
+     * Elimina una configuración para que vuelva a utilizar su valor por defecto.
+     */
+    public void eliminar(String clave) {
+        try (Connection connection = DatabaseService.getConnection()) {
+            eliminar(connection, clave);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al eliminar la configuración: " + clave, e);
+        }
+    }
+
+    /**
      * Guarda múltiples valores de forma atómica.
      */
     public void guardarMultiples(Map<String, String> configuraciones) {
@@ -74,6 +91,13 @@ public class ConfigRepository {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ps.setString(2, valor);
+            ps.executeUpdate();
+        }
+    }
+
+    private void eliminar(Connection connection, String clave) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM configuracion WHERE clave = ?")) {
+            ps.setString(1, clave);
             ps.executeUpdate();
         }
     }
@@ -116,11 +140,15 @@ public class ConfigRepository {
     }
 
     public static String getDefaultDocumentsPath() {
-        java.io.File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
-        if (docs != null && docs.exists()) {
+        File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
+        return resolverDefaultDocumentsPath(docs, System.getProperty("user.home"));
+    }
+
+    static String resolverDefaultDocumentsPath(File docs, String userHome) {
+        if (docs != null && docs.isDirectory()) {
             return docs.getAbsolutePath();
         }
-        return System.getProperty("user.home") + java.io.File.separator + "Documents";
+        return Paths.get(userHome, "Documents").toAbsolutePath().normalize().toString();
     }
 
     public static String getDefaultBoletasPath() {
@@ -132,29 +160,62 @@ public class ConfigRepository {
     }
 
     /**
-     * Guarda las rutas configuradas. Si una ruta coincide con el valor por defecto,
-     * se persiste vacia para que siga resolviendose dinamicamente en futuros equipos
-     * o ante cambios en la carpeta Documentos del usuario.
+     * Guarda ambas rutas de forma atómica. Las rutas por defecto eliminan cualquier
+     * override; las personalizadas se normalizan y deben ser directorios utilizables.
      */
     public void guardarRutas(String rutaBoletas, String rutaPresupuestos) {
-        Map<String, String> configuraciones = new HashMap<>();
-        configuraciones.put("ruta.boletas", quitarOverrideSiEsDefault(rutaBoletas, getDefaultBoletasPath()));
-        configuraciones.put("ruta.presupuestos", quitarOverrideSiEsDefault(rutaPresupuestos, getDefaultPresupuestosPath()));
-        guardarMultiples(configuraciones);
-    }
-
-    private static String quitarOverrideSiEsDefault(String ruta, String rutaDefault) {
-        String valor = ruta == null ? "" : ruta.trim();
-        if (valor.isEmpty()) {
-            return "";
-        }
+        String boletas = normalizarDirectorio(rutaBoletas, getDefaultBoletasPath(), "boletas");
+        String presupuestos = normalizarDirectorio(rutaPresupuestos, getDefaultPresupuestosPath(), "presupuestos");
 
         try {
-            java.nio.file.Path path = java.nio.file.Paths.get(valor).toAbsolutePath().normalize();
-            java.nio.file.Path defaultPath = java.nio.file.Paths.get(rutaDefault).toAbsolutePath().normalize();
-            return path.equals(defaultPath) ? "" : valor;
-        } catch (java.nio.file.InvalidPathException e) {
-            return valor;
+            TransactionHelper.runInTransaction(connection -> {
+                guardarOEliminarRuta(connection, "ruta.boletas", boletas);
+                guardarOEliminarRuta(connection, "ruta.presupuestos", presupuestos);
+                return null;
+            });
+        } catch (Exception e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error guardando las rutas", e);
+        }
+    }
+
+    private void guardarOEliminarRuta(Connection connection, String clave, String valor) throws SQLException {
+        if (valor == null) {
+            eliminar(connection, clave);
+        } else {
+            guardar(connection, clave, valor);
+        }
+    }
+
+    private static String normalizarDirectorio(String ruta, String rutaDefault, String descripcion) {
+        String valor = ruta == null ? "" : ruta.trim();
+
+        try {
+            Path defaultPath = Paths.get(rutaDefault).toAbsolutePath().normalize();
+            if (valor.isEmpty()) {
+                return null;
+            }
+
+            Path path = Paths.get(valor);
+            if (!path.isAbsolute()) {
+                throw new IllegalArgumentException("La ruta de " + descripcion + " debe ser absoluta.");
+            }
+            path = path.normalize();
+            if (path.equals(defaultPath)) {
+                return null;
+            }
+            if (Files.exists(path) && !Files.isDirectory(path)) {
+                throw new IllegalArgumentException("La ruta de " + descripcion + " apunta a un archivo.");
+            }
+            Files.createDirectories(path);
+            if (!Files.isWritable(path)) {
+                throw new IllegalArgumentException("La carpeta de " + descripcion + " no tiene permisos de escritura.");
+            }
+            return path.toString();
+        } catch (InvalidPathException e) {
+            throw new IllegalArgumentException("La ruta de " + descripcion + " no es válida.", e);
+        } catch (IOException | SecurityException e) {
+            throw new IllegalArgumentException("No se puede crear o usar la carpeta de " + descripcion + ".", e);
         }
     }
 

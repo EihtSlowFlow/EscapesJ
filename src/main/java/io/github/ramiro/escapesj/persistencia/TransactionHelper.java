@@ -29,8 +29,6 @@ public class TransactionHelper {
                     e.addSuppressed(rollbackError);
                 }
                 throw e;
-            } finally {
-                conn.setAutoCommit(originalAutoCommit);
             }
         }
     }

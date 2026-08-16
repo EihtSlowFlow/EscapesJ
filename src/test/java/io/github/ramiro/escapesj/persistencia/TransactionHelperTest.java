@@ -133,6 +133,7 @@ public class TransactionHelperTest {
         assertEquals(initialBoletas + 1, countRows("SELECT COUNT(*) FROM boletas WHERE nombre_cliente = 'Test Commit Cliente'"));
         assertEquals(initialServicios + 1, countRows("SELECT COUNT(*) FROM servicios_historial WHERE nombre = 'Test Commit Cliente'"));
     }
+    @Test
     public void testTransactionRollbacksOnSqlException() throws Exception {
         conn = DatabaseService.getConnection();
         boletaRepo = new BoletaRepository();

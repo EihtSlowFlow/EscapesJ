@@ -201,7 +201,7 @@ public class VentanaPresupuesto extends JFrame {
         formPanel.add(Box.createVerticalStrut(4));
 
         // Botón Agregar
-        JButton btnAgregar = new JButton("➕  Agregar al Presupuesto");
+        JButton btnAgregar = new JButton("Agregar al Presupuesto");
         btnAgregar.setBackground(new Color(231, 76, 60));
         btnAgregar.setForeground(Color.WHITE);
         btnAgregar.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -273,7 +273,7 @@ public class VentanaPresupuesto extends JFrame {
         lblItems.setBorder(BorderFactory.createEmptyBorder(5, 10, 3, 0));
         pnlTablaHeader.add(lblItems, BorderLayout.WEST);
 
-        JButton btnQuitar = new JButton("❌ Quitar Seleccionado");
+        JButton btnQuitar = new JButton("Quitar Seleccionado");
         btnQuitar.setBackground(new Color(192, 57, 43));
         btnQuitar.setForeground(Color.WHITE);
         btnQuitar.setFont(new Font("SansSerif", Font.BOLD, 11));
@@ -302,8 +302,8 @@ public class VentanaPresupuesto extends JFrame {
         cargarEmisores();
         pnlEmisor.add(comboEmisores);
 
-        JButton btnAgregarEmisor = new JButton("➕");
-        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        JButton btnAgregarEmisor = new JButton("Nuevo");
+        btnAgregarEmisor.setToolTipText("Crear nuevo emisor");
         btnAgregarEmisor.addActionListener(e -> {
             DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
                 cargarEmisores();
@@ -318,7 +318,7 @@ public class VentanaPresupuesto extends JFrame {
         pnlBotones.setOpaque(false);
         pnlBotones.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
 
-        JButton btnVerificar = new JButton("🔎 Verificar Presupuesto");
+        JButton btnVerificar = new JButton("Verificar Presupuesto");
         btnVerificar.setBackground(new Color(243, 156, 18));
         btnVerificar.setForeground(Color.WHITE);
         btnVerificar.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -327,7 +327,7 @@ public class VentanaPresupuesto extends JFrame {
         btnVerificar.setBorder(BorderFactory.createLineBorder(new Color(243, 156, 18).brighter(), 1));
         pnlBotones.add(btnVerificar);
 
-        JButton btnGenerar = new JButton("📄 Generar Presupuesto");
+        JButton btnGenerar = new JButton("Generar Presupuesto");
         btnGenerar.setBackground(new Color(155, 89, 182));
         btnGenerar.setForeground(Color.WHITE);
         btnGenerar.setFont(new Font("SansSerif", Font.BOLD, 13));

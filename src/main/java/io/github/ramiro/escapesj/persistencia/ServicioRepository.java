@@ -31,7 +31,7 @@ public class ServicioRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
-            throw new RuntimeException("Error registrando servicio", e);
+            throw new PersistenceException("Error registrando servicio", e);
         }
     }
 
@@ -44,9 +44,8 @@ public class ServicioRepository {
             ps.setString(4, s.getFecha());
             ps.executeUpdate();
         } catch (SQLException e) {
-            logger.error("Error:", e);
-            e.printStackTrace();
-            throw new RuntimeException("Error registrando servicio", e);
+            logger.error("Error registrando servicio:", e);
+            throw new PersistenceException("Error registrando servicio", e);
         }
     }
 
@@ -63,6 +62,7 @@ public class ServicioRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error buscando servicios", e);
         }
         return lista;
     }

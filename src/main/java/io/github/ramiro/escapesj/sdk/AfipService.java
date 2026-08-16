@@ -357,6 +357,16 @@ public class AfipService {
             });
         }).exceptionally(ex -> {
             logger.error("Error consultando AFIP para DNI " + dni + ": " + ex.getMessage());
+            
+            // Desenvolver si es CompletionException
+            Throwable cause = ex;
+            while (cause instanceof java.util.concurrent.CompletionException || cause instanceof java.util.concurrent.ExecutionException) {
+                cause = cause.getCause();
+            }
+            if (cause instanceof io.github.ramiro.escapesj.persistencia.PersistenceException) {
+                throw (io.github.ramiro.escapesj.persistencia.PersistenceException) cause;
+            }
+            
             return Optional.<Cliente>empty();
         });
     }

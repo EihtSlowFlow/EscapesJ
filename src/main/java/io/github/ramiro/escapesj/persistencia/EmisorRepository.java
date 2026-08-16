@@ -5,6 +5,7 @@ import io.github.ramiro.escapesj.modelo.Emisor;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +29,8 @@ public class EmisorRepository {
                         rs.getString("telefono")
                 ));
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw new PersistenceException("Error listando emisores", e);
         }
         return emisores;
     }
@@ -57,9 +58,9 @@ public class EmisorRepository {
                     );
                 }
             }
-        } catch (Exception e) {
-            throw new IllegalStateException("No se pudo guardar el emisor", e);
+        } catch (SQLException e) {
+            throw new PersistenceException("No se pudo guardar el emisor", e);
         }
-        throw new IllegalStateException("La base de datos no devolvió el identificador del emisor guardado");
+        throw new PersistenceException("La base de datos no devolvió el identificador del emisor guardado", null);
     }
 }

@@ -65,8 +65,12 @@ public class VentanaModificarProducto extends JDialog {
             repository.actualizarConCambioDeCodigo(nuevo, productoOriginal.getCodigo());
             actualizado = true;
             dispose();
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Verifique los formatos de precio y stock.");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "modificar producto", ex);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Verifique los datos numéricos.");
+            JOptionPane.showMessageDialog(this, "Error general.");
         }
     }
 

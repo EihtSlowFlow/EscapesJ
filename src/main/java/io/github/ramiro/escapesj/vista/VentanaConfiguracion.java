@@ -279,15 +279,20 @@ public class VentanaConfiguracion extends JFrame {
     }
 
     private void cargarDatos() {
-        txtAccessToken.setText(configRepo.getAfipAccessToken());
-        txtCuit.setText(configRepo.getAfipCuit());
-        chkProduction.setSelected(configRepo.isAfipProduction());
-        txtCertPath.setText(configRepo.getAfipCertPath());
-        txtKeyPath.setText(configRepo.getAfipKeyPath());
-        txtRutaBoletas.setText(configRepo.getRutaBoletas());
-        txtRutaPresupuestos.setText(configRepo.getRutaPresupuestos());
+        try {
+            txtAccessToken.setText(configRepo.getAfipAccessToken());
+            txtCuit.setText(configRepo.getAfipCuit());
+            chkProduction.setSelected(configRepo.isAfipProduction());
+            txtCertPath.setText(configRepo.getAfipCertPath());
+            txtKeyPath.setText(configRepo.getAfipKeyPath());
+            txtRutaBoletas.setText(configRepo.getRutaBoletas());
+            txtRutaPresupuestos.setText(configRepo.getRutaPresupuestos());
 
-        usuarioRepo.obtenerPreguntaSeguridad("admin").ifPresent(p -> txtPreguntaSeguridad.setText(p));
+            usuarioRepo.obtenerPreguntaSeguridad("admin").ifPresent(p -> txtPreguntaSeguridad.setText(p));
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar configuraciones", e);
+            SwingUtilities.invokeLater(this::dispose);
+        }
     }
 
     private void elegirArchivoFichero(JTextField campo, String extension) {
@@ -320,17 +325,18 @@ public class VentanaConfiguracion extends JFrame {
         String rutaPresupuestos = txtRutaPresupuestos.getText().trim();
 
         try {
-            if (!rutaBoletas.isEmpty()) configRepo.guardar("ruta.boletas", rutaBoletas);
-            if (!rutaPresupuestos.isEmpty()) configRepo.guardar("ruta.presupuestos", rutaPresupuestos);
+            java.util.Map<String, String> configs = new java.util.HashMap<>();
+            if (!rutaBoletas.isEmpty()) configs.put("ruta.boletas", rutaBoletas);
+            if (!rutaPresupuestos.isEmpty()) configs.put("ruta.presupuestos", rutaPresupuestos);
+            if (!configs.isEmpty()) {
+                configRepo.guardarMultiples(configs);
+            }
 
             JOptionPane.showMessageDialog(this,
                     "Rutas actualizadas correctamente.",
                     "Configuración", JOptionPane.INFORMATION_MESSAGE);
-        } catch (java.sql.SQLException e) {
-            JOptionPane.showMessageDialog(this,
-                    "Error al guardar las rutas en la base de datos:\n" + e.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "guardar rutas", e);
         }
     }
 
@@ -365,18 +371,17 @@ public class VentanaConfiguracion extends JFrame {
             return;
         }
 
-        // Guardar en DB
+        // Guardar en DB atómicamente
         try {
-            configRepo.guardar("afip.access_token", token);
-            configRepo.guardar("afip.cuit", cuit);
-            configRepo.guardar("afip.production", produccion ? "true" : "false");
-            configRepo.guardar("afip.cert_path", certPath);
-            configRepo.guardar("afip.key_path", keyPath);
-        } catch (java.sql.SQLException e) {
-            JOptionPane.showMessageDialog(this,
-                    "Error al guardar la configuración de AFIP en la base de datos:\n" + e.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            java.util.Map<String, String> configs = new java.util.HashMap<>();
+            configs.put("afip.access_token", token);
+            configs.put("afip.cuit", cuit);
+            configs.put("afip.production", produccion ? "true" : "false");
+            configs.put("afip.cert_path", certPath);
+            configs.put("afip.key_path", keyPath);
+            configRepo.guardarMultiples(configs);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "guardar configuración AFIP", e);
             return;
         }
 
@@ -499,48 +504,41 @@ public class VentanaConfiguracion extends JFrame {
             return;
         }
 
-        // Validar credenciales actuales
-        if (!usuarioRepo.validarCredenciales(usuarioActual, passwordActual)) {
-            JOptionPane.showMessageDialog(this,
-                    "Las credenciales actuales son incorrectas.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+        try {
+            // Validar credenciales actuales
+            if (!usuarioRepo.validarCredenciales(usuarioActual, passwordActual)) {
+                JOptionPane.showMessageDialog(this,
+                        "Las credenciales actuales son incorrectas.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-        // Cambiar contraseña si se proporcionó
-        if (!passwordNueva.isEmpty()) {
-            if (!passwordNueva.equals(passwordConfirmar)) {
+            if (!passwordNueva.isEmpty() && !passwordNueva.equals(passwordConfirmar)) {
                 JOptionPane.showMessageDialog(this,
                         "Las contraseñas nuevas no coinciden.",
                         "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            usuarioRepo.cambiarPassword(usuarioActual, passwordActual, passwordNueva);
+
+            String usuarioNuevo = txtUsuarioNuevo.getText().trim();
+            String pregunta = txtPreguntaSeguridad.getText().trim();
+            String respuesta = txtRespuestaSeguridad.getText().trim();
+
+            usuarioRepo.actualizarCredenciales(usuarioActual, usuarioNuevo, passwordNueva, pregunta, respuesta);
+
+            JOptionPane.showMessageDialog(this,
+                    "Credenciales y seguridad actualizadas correctamente.",
+                    "Configuración", JOptionPane.INFORMATION_MESSAGE);
+
+            // Limpiar campos
+            txtPasswordActual.setText("");
+            txtPasswordNueva.setText("");
+            txtPasswordConfirmar.setText("");
+            txtUsuarioNuevo.setText("");
+            txtRespuestaSeguridad.setText("");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "actualizar credenciales", e);
         }
-
-        // Cambiar usuario si se proporcionó
-        String usuarioNuevo = txtUsuarioNuevo.getText().trim();
-        if (!usuarioNuevo.isEmpty() && !usuarioNuevo.equals(usuarioActual)) {
-            usuarioRepo.cambiarUsuario(usuarioActual, usuarioNuevo);
-        }
-
-        // Configurar pregunta de seguridad si se completaron los campos
-        String pregunta = txtPreguntaSeguridad.getText().trim();
-        String respuesta = txtRespuestaSeguridad.getText().trim();
-        if (!pregunta.isEmpty() && !respuesta.isEmpty()) {
-            usuarioRepo.configurarPreguntaSeguridad(usuarioNuevo.isEmpty() ? usuarioActual : usuarioNuevo, pregunta, respuesta);
-        }
-
-        JOptionPane.showMessageDialog(this,
-                "Credenciales y seguridad actualizadas correctamente.",
-                "Configuración", JOptionPane.INFORMATION_MESSAGE);
-
-        // Limpiar campos
-        txtPasswordActual.setText("");
-        txtPasswordNueva.setText("");
-        txtPasswordConfirmar.setText("");
-        txtUsuarioNuevo.setText("");
-        txtRespuestaSeguridad.setText("");
     }
 
     private JLabel crearLabel(String texto) {

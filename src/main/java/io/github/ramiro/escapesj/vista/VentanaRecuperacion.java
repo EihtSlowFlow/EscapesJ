@@ -156,18 +156,22 @@ public class VentanaRecuperacion extends JDialog {
             return;
         }
 
-        Optional<String> pregunta = usuarioRepository.obtenerPreguntaSeguridad(usr);
-        if (pregunta.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "El usuario no existe o no tiene una pregunta de seguridad configurada.\n" +
-                "Si sos el administrador, revisá la configuración.",
-                "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+        try {
+            Optional<String> pregunta = usuarioRepository.obtenerPreguntaSeguridad(usr);
+            if (pregunta.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                    "El usuario no existe o no tiene una pregunta de seguridad configurada.\n" +
+                    "Si sos el administrador, revisá la configuración.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-        usuarioValido = usr;
-        lblPregunta.setText("Pregunta: " + pregunta.get());
-        cardLayout.show(cardsPanel, "Paso2");
+            usuarioValido = usr;
+            lblPregunta.setText("Pregunta: " + pregunta.get());
+            cardLayout.show(cardsPanel, "Paso2");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "validar usuario", ex);
+        }
     }
 
     private void validarRespuesta() {
@@ -177,10 +181,14 @@ public class VentanaRecuperacion extends JDialog {
             return;
         }
 
-        if (usuarioRepository.validarRespuestaSeguridad(usuarioValido, rta)) {
-            cardLayout.show(cardsPanel, "Paso3");
-        } else {
-            JOptionPane.showMessageDialog(this, "Respuesta incorrecta.", "Error", JOptionPane.ERROR_MESSAGE);
+        try {
+            if (usuarioRepository.validarRespuestaSeguridad(usuarioValido, rta)) {
+                cardLayout.show(cardsPanel, "Paso3");
+            } else {
+                JOptionPane.showMessageDialog(this, "Respuesta incorrecta.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "validar respuesta de seguridad", ex);
         }
     }
 
@@ -198,9 +206,13 @@ public class VentanaRecuperacion extends JDialog {
             return;
         }
 
-        usuarioRepository.resetPassword(usuarioValido, p1);
-        JOptionPane.showMessageDialog(this, "Contraseña actualizada exitosamente.\nYa podés iniciar sesión.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-        dispose();
+        try {
+            usuarioRepository.resetPassword(usuarioValido, p1);
+            JOptionPane.showMessageDialog(this, "Contraseña actualizada exitosamente.\nYa podés iniciar sesión.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            dispose();
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "restablecer contraseña", ex);
+        }
     }
 
     private void estilizarBoton(JButton btn) {

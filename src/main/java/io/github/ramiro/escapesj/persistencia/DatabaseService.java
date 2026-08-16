@@ -62,7 +62,7 @@ public class DatabaseService {
             return conn;
         } catch (Exception e) {
             logger.error("Error al conectar con SQLite: " + e.getMessage());
-            return null;
+            throw new PersistenceException("Error al conectar con la base de datos", e);
         }
     }
 

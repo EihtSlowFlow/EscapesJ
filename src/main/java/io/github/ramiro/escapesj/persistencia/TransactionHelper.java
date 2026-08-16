@@ -15,24 +15,21 @@ public class TransactionHelper {
      * Disables autoCommit, executes, and commits on success or rolls back on error.
      */
     public static <T> T runInTransaction(TransactionalAction<T> action) throws Exception {
-        Connection conn = DatabaseService.getConnection();
-        if (conn == null) {
-            throw new SQLException("No se pudo obtener la conexión a la base de datos");
-        }
-
-        boolean originalAutoCommit = conn.getAutoCommit();
-        try {
-            conn.setAutoCommit(false);
-
-            T result = action.execute(conn);
-
-            conn.commit();
-            return result;
-        } catch (Exception e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(originalAutoCommit);
+        try (Connection conn = DatabaseService.getConnection()) {
+            boolean originalAutoCommit = conn.getAutoCommit();
+            try {
+                conn.setAutoCommit(false);
+                T result = action.execute(conn);
+                conn.commit();
+                return result;
+            } catch (Exception e) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackError) {
+                    e.addSuppressed(rollbackError);
+                }
+                throw e;
+            }
         }
     }
 }

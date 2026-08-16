@@ -98,10 +98,8 @@ public class DialogoAgregarEmisor extends JDialog {
                 onGuardado.accept(nuevo);
             }
             dispose();
-        } catch (RuntimeException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "No se pudo guardar el emisor:\n" + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "guardar emisor", ex);
         }
     }
 }

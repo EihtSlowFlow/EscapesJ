@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -29,8 +30,9 @@ public class BoletaRepository {
                 int max = rs.getInt(1);
                 return max > 0 ? max + 1 : 1;
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al obtener siguiente número", e);
         }
         return 1;
     }
@@ -38,9 +40,9 @@ public class BoletaRepository {
     public int crearBoleta(String dni, String nombreCliente, String fecha, BigDecimal total) {
         try (Connection conn = DatabaseService.getConnection()) {
             return crearBoleta(conn, dni, nombreCliente, fecha, total);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return -1;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error creando boleta", e);
         }
     }
 
@@ -63,9 +65,9 @@ public class BoletaRepository {
                     return rs.getInt(1);
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Error creando boleta", e);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error creando boleta", e);
         }
         return -1;
     }
@@ -73,8 +75,9 @@ public class BoletaRepository {
     public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
         try (Connection conn = DatabaseService.getConnection()) {
             agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error agregando item", e);
         }
     }
 
@@ -92,18 +95,18 @@ public class BoletaRepository {
             pstmt.setLong(6, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario));
             pstmt.setLong(7, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario.multiply(java.math.BigDecimal.valueOf(cantidad))));
             pstmt.executeUpdate();
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Error agregando item", e);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error agregando item", e);
         }
     }
 
     public List<BoletaResumen> buscarBoletasPorDni(String dniBuscado) {
         try (Connection conn = DatabaseService.getConnection()) {
             return buscarBoletasPorDni(conn, dniBuscado);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ArrayList<>();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boletas", e);
         }
     }
 
@@ -125,8 +128,9 @@ public class BoletaRepository {
                     ));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boletas", e);
         }
         return lista;
     }
@@ -134,9 +138,9 @@ public class BoletaRepository {
     public List<BoletaItem> obtenerItems(int boletaId) {
         try (Connection conn = DatabaseService.getConnection()) {
             return obtenerItems(conn, boletaId);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ArrayList<>();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error obteniendo items", e);
         }
     }
 
@@ -164,8 +168,9 @@ public class BoletaRepository {
                     ));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error obteniendo items", e);
         }
         return lista;
     }

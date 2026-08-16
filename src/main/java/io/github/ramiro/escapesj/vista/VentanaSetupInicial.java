@@ -90,16 +90,20 @@ public class VentanaSetupInicial extends JFrame {
             return;
         }
 
-        boolean exito = usuarioRepository.crearAdminSetupInicial(usuario, pwd);
-        if (exito) {
-            JOptionPane.showMessageDialog(this, "Cuenta creada exitosamente. Ahora iniciará sesión automáticamente o cerrará. En el primer login deberá cambiarla de todos modos.", "Configuración Exitosa", JOptionPane.INFORMATION_MESSAGE);
-            // Wait, the plan was to set debe_cambiar_password = 1 in crearAdminSetupInicial, but since the user creates it manually using this dialog, we don't need to force a change again on the first login!
-            // Actually, my plan was "Si optamos por la creación manual ...". So we can just set it to 0 or leave it, but I implemented `crearAdminSetupInicial` setting it to 1. I will change that logic slightly or let it force it. Let's modify `crearAdminSetupInicial` to NOT force a change if it's created manually in the dialog. Or we can just let it force the change to test the feature.
-            // Let's close and let them login.
-            JOptionPane.showMessageDialog(this, "Cuenta creada exitosamente. El sistema se cerrará. Vuelva a iniciar la aplicación y acceda con su nueva cuenta.", "Configuración Exitosa", JOptionPane.INFORMATION_MESSAGE);
-            System.exit(0);
-        } else {
-            JOptionPane.showMessageDialog(this, "Error al crear la cuenta. Intente de nuevo.", "Error", JOptionPane.ERROR_MESSAGE);
+        try {
+            boolean exito = usuarioRepository.crearAdminSetupInicial(usuario, pwd);
+            if (exito) {
+                JOptionPane.showMessageDialog(this, "Cuenta creada exitosamente. Ahora iniciará sesión automáticamente o cerrará. En el primer login deberá cambiarla de todos modos.", "Configuración Exitosa", JOptionPane.INFORMATION_MESSAGE);
+                // Wait, the plan was to set debe_cambiar_password = 1 in crearAdminSetupInicial, but since the user creates it manually using this dialog, we don't need to force a change again on the first login!
+                // Actually, my plan was "Si optamos por la creación manual ...". So we can just set it to 0 or leave it, but I implemented `crearAdminSetupInicial` setting it to 1. I will change that logic slightly or let it force it. Let's modify `crearAdminSetupInicial` to NOT force a change if it's created manually in the dialog. Or we can just let it force the change to test the feature.
+                // Let's close and let them login.
+                JOptionPane.showMessageDialog(this, "Cuenta creada exitosamente. El sistema se cerrará. Vuelva a iniciar la aplicación y acceda con su nueva cuenta.", "Configuración Exitosa", JOptionPane.INFORMATION_MESSAGE);
+                System.exit(0);
+            } else {
+                JOptionPane.showMessageDialog(this, "Error al crear la cuenta. Intente de nuevo.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "crear cuenta administrador", e);
         }
     }
 }

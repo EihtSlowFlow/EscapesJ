@@ -6,8 +6,15 @@ import io.github.ramiro.escapesj.modelo.Cliente;
 import io.github.ramiro.escapesj.persistencia.ClienteCacheRepository;
 import io.github.ramiro.escapesj.persistencia.ClienteCacheRepository.EntradaCache;
 import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import io.github.ramiro.escapesj.persistencia.DatabaseService;
+import io.github.ramiro.escapesj.persistencia.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.concurrent.CompletionException;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -96,8 +103,15 @@ public class AfipServiceTest {
         @Override public HttpClient.Version version() { return HttpClient.Version.HTTP_2; }
     }
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path tempDir;
+
     @BeforeEach
     public void setup() throws Exception {
+        java.nio.file.Path db = tempDir.resolve("escapesj-test-afip.db");
+        DatabaseService.setCustomDbUrl("jdbc:sqlite:" + db.toAbsolutePath().toString());
+        DatabaseService.reiniciarTest();
+        DatabaseService.inicializar();
         configRepo = new ConfigRepository() {
             @Override public void guardar(String clave, String valor) {}
             @Override public Optional<String> obtener(String clave) { return Optional.empty(); }
@@ -122,6 +136,12 @@ public class AfipServiceTest {
 
         mockHttpClient = new TestHttpClient();
         afipService = new AfipService(configRepo, cacheRepo, mockHttpClient);
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        DatabaseService.setCustomDbUrl(null);
+        DatabaseService.reiniciarTest();
     }
 
     @Test
@@ -210,5 +230,26 @@ public class AfipServiceTest {
 
         assertFalse(resultado.isPresent());
         assertEquals(1, mockHttpClient.requests.size());
+    }
+
+    @Test
+    public void testBuscarClientePorDniAsync_PropagaPersistenceException() throws Exception {
+        // Usar un repositorio real que intentará acceder a la base de datos
+        ClienteCacheRepository realCacheRepo = new ClienteCacheRepository();
+        AfipService serviceConDbReal = new AfipService(configRepo, realCacheRepo, mockHttpClient);
+
+        // Rompemos la tabla cache_afip para provocar un SQLException al buscar en la caché
+        try (Connection conn = DatabaseService.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("DROP TABLE cache_afip");
+        }
+
+        Exception exception = assertThrows(CompletionException.class, () -> {
+            serviceConDbReal.buscarClientePorDniAsync("11111111").join();
+        });
+
+        Throwable cause = exception.getCause();
+        assertTrue(cause instanceof PersistenceException, "La excepción original debe ser propagada");
+        assertTrue(cause.getMessage().contains("Error al buscar DNI en cache"));
     }
 }

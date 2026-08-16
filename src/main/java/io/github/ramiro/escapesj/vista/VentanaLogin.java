@@ -133,43 +133,47 @@ public class VentanaLogin extends JFrame {
         String usuario = txtUsuario.getText().trim();
         String password = new String(txtPassword.getPassword());
 
-        if (usuarioRepo.validarCredenciales(usuario, password)) {
-            if (usuarioRepo.debeCambiarPassword(usuario)) {
-                JOptionPane.showMessageDialog(this, "Por motivos de seguridad, debe cambiar su contraseña generada por defecto/migración.", "Cambio de Contraseña Obligatorio", JOptionPane.WARNING_MESSAGE);
-                JPasswordField pf1 = new JPasswordField();
-                JPasswordField pf2 = new JPasswordField();
-                Object[] message = {
-                    "Nueva Contraseña:", pf1,
-                    "Confirmar Nueva Contraseña:", pf2
-                };
-                int option = JOptionPane.showConfirmDialog(this, message, "Cambio de Contraseña", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-                if (option == JOptionPane.OK_OPTION) {
-                    String p1 = new String(pf1.getPassword());
-                    String p2 = new String(pf2.getPassword());
-                    if (p1.isEmpty() || !p1.equals(p2)) {
-                        JOptionPane.showMessageDialog(this, "Las contraseñas no coinciden o están vacías. No se pudo iniciar sesión.");
-                        return; // Aborts login
-                    }
-                    if (p1.length() < 6) {
-                        JOptionPane.showMessageDialog(this, "La contraseña debe tener al menos 6 caracteres. No se pudo iniciar sesión.");
-                        return; // Aborts login
-                    }
-                    // Attempt to change
-                    if (usuarioRepo.cambiarPassword(usuario, password, p1)) {
-                        JOptionPane.showMessageDialog(this, "Contraseña actualizada con éxito.");
+        try {
+            if (usuarioRepo.validarCredenciales(usuario, password)) {
+                if (usuarioRepo.debeCambiarPassword(usuario)) {
+                    JOptionPane.showMessageDialog(this, "Por motivos de seguridad, debe cambiar su contraseña generada por defecto/migración.", "Cambio de Contraseña Obligatorio", JOptionPane.WARNING_MESSAGE);
+                    JPasswordField pf1 = new JPasswordField();
+                    JPasswordField pf2 = new JPasswordField();
+                    Object[] message = {
+                        "Nueva Contraseña:", pf1,
+                        "Confirmar Nueva Contraseña:", pf2
+                    };
+                    int option = JOptionPane.showConfirmDialog(this, message, "Cambio de Contraseña", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                    if (option == JOptionPane.OK_OPTION) {
+                        String p1 = new String(pf1.getPassword());
+                        String p2 = new String(pf2.getPassword());
+                        if (p1.isEmpty() || !p1.equals(p2)) {
+                            JOptionPane.showMessageDialog(this, "Las contraseñas no coinciden o están vacías. No se pudo iniciar sesión.");
+                            return; // Aborts login
+                        }
+                        if (p1.length() < 6) {
+                            JOptionPane.showMessageDialog(this, "La contraseña debe tener al menos 6 caracteres. No se pudo iniciar sesión.");
+                            return; // Aborts login
+                        }
+                        // Attempt to change
+                        if (usuarioRepo.cambiarPassword(usuario, password, p1)) {
+                            JOptionPane.showMessageDialog(this, "Contraseña actualizada con éxito.");
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Hubo un error al actualizar la contraseña.");
+                            return; // Aborts login
+                        }
                     } else {
-                        JOptionPane.showMessageDialog(this, "Hubo un error al actualizar la contraseña.");
-                        return; // Aborts login
+                        return; // Aborts login if they hit cancel
                     }
-                } else {
-                    return; // Aborts login if they hit cancel
                 }
-            }
 
-            new VentanaMenu(afip, inv, prodRepo, servRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo).setVisible(true);
-            this.dispose();
-        } else {
-            JOptionPane.showMessageDialog(this, "Error de acceso: Credenciales inválidas.");
+                new VentanaMenu(afip, inv, prodRepo, servRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo).setVisible(true);
+                this.dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Error de acceso: Credenciales inválidas.");
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "iniciar sesión", e);
         }
     }
 

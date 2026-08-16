@@ -33,6 +33,7 @@ public class ProductoRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar producto", e);
         }
     }
 
@@ -52,6 +53,7 @@ public class ProductoRepository {
             pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al actualizar producto", e);
         }
     }
 
@@ -76,6 +78,7 @@ public class ProductoRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar producto", e);
         }
         return Optional.empty();
     }
@@ -99,6 +102,7 @@ public class ProductoRepository {
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar productos", e);
         }
         return lista;
     }
@@ -117,7 +121,8 @@ public class ProductoRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error al verificar stock", e);
+            throw new PersistenceException("Error al verificar stock", e);
         }
         return false;
     }
@@ -129,7 +134,7 @@ public class ProductoRepository {
         try (Connection connection = DatabaseService.getConnection()) {
             return intentarRestarStock(connection, codigo, cantidad);
         } catch (SQLException e) {
-            return false;
+            throw new PersistenceException("Error al intentar restar stock", e);
         }
     }
 
@@ -141,7 +146,7 @@ public class ProductoRepository {
             ps.setInt(3, cantidad);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            return false;
+            throw new PersistenceException("Error al intentar restar stock en tx", e);
         }
     }
 
@@ -154,7 +159,7 @@ public class ProductoRepository {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Error:", e);
-            return false;
+            throw new PersistenceException("Error al actualizar stock", e);
         }
     }
 
@@ -169,7 +174,7 @@ public class ProductoRepository {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Error:", e);
-            return false;
+            throw new PersistenceException("Error al eliminar producto", e);
         }
     }
 
@@ -185,6 +190,7 @@ public class ProductoRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
+            throw new PersistenceException("Error al sumar stock", e);
         }
     }
 }

@@ -7,16 +7,59 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.List;
 
 public class DatabaseService {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
-    private static final int LATEST_DB_VERSION = 2;
-
 
     private static final String DB_FILENAME = "escapesj.db";
     private static boolean inicializado = false;
 
     private static String customDbUrl = null;
+
+    public interface MigrationAction {
+        void execute(Connection conn) throws Exception;
+    }
+
+    public record Migration(int version, String descripcion, MigrationAction action) {}
+
+    public static final List<Migration> MIGRACIONES = List.of(
+        new Migration(1, "Conversión a centavos", conn -> {
+            int legacyVersion = obtenerLegacyDbVersion(conn);
+            if (legacyVersion < 1) {
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute("UPDATE boletas SET total = CAST(ROUND(total * 100) AS INTEGER)");
+                    stmt.execute("UPDATE boleta_items SET precio_unitario = CAST(ROUND(precio_unitario * 100) AS INTEGER)");
+                    stmt.execute("UPDATE boleta_items SET subtotal = CAST(ROUND(subtotal * 100) AS INTEGER)");
+                    stmt.execute("UPDATE productos SET precio = CAST(ROUND(precio * 100) AS INTEGER)");
+                    stmt.execute("UPDATE presupuestos SET monto_estimado = CAST(ROUND(monto_estimado * 100) AS INTEGER)");
+                }
+            }
+        }),
+        new Migration(2, "Emisores", conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE TABLE IF NOT EXISTS emisores (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "nombre TEXT NOT NULL, " +
+                        "cuit TEXT NOT NULL, " +
+                        "calle TEXT, " +
+                        "telefono TEXT)");
+            }
+        }),
+        new Migration(3, "Columnas seguridad en usuarios", conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                if (!existeColumna(conn, "usuarios", "pregunta_seguridad")) {
+                    stmt.execute("ALTER TABLE usuarios ADD COLUMN pregunta_seguridad VARCHAR(255)");
+                }
+                if (!existeColumna(conn, "usuarios", "respuesta_seguridad")) {
+                    stmt.execute("ALTER TABLE usuarios ADD COLUMN respuesta_seguridad VARCHAR(100)");
+                }
+                if (!existeColumna(conn, "usuarios", "debe_cambiar_password")) {
+                    stmt.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER DEFAULT 1");
+                }
+            }
+        })
+    );
 
     /**
      * Permite inyectar una URL JDBC custom para tests (ej: jdbc:sqlite::memory:).
@@ -81,12 +124,46 @@ public class DatabaseService {
         }
     }
 
+    public static boolean existeColumna(Connection conn, String tabla, String columna) throws Exception {
+        try (Statement stmt = conn.createStatement();
+             java.sql.ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tabla + ")")) {
+            while (rs.next()) {
+                if (columna.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static int obtenerLegacyDbVersion(Connection conn) {
+        try (Statement stmt = conn.createStatement();
+             java.sql.ResultSet rsVer = stmt.executeQuery("SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
+            if (rsVer.next()) {
+                return Integer.parseInt(rsVer.getString("valor"));
+            }
+        } catch (Exception e) {
+            // Si falla, no hay versión legacy o no existe la tabla
+        }
+        return 0;
+    }
+
     /**
      * Crea las tablas si no existen.
      * Esquema completo con todas las columnas que usan los repositorios.
      */
     private static void inicializarTablas(Connection conn) throws Exception {
         try (Statement stmt = conn.createStatement()) {
+
+            // Tabla Control de Migraciones
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version INTEGER PRIMARY KEY,
+                    descripcion TEXT,
+                    ejecutado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ms_transcurridos INTEGER
+                )
+            """);
 
             // Tabla Productos (Inventario)
             stmt.execute("""
@@ -121,18 +198,6 @@ public class DatabaseService {
                     debe_cambiar_password INTEGER DEFAULT 1
                 )
             """);
-            // Migración para bases de datos existentes
-            try {
-                stmt.execute("ALTER TABLE usuarios ADD COLUMN pregunta_seguridad VARCHAR(255)");
-                stmt.execute("ALTER TABLE usuarios ADD COLUMN respuesta_seguridad VARCHAR(100)");
-            } catch (Exception e) {
-                // Si la columna ya existe, SQLite tira un error que podemos ignorar en esta migración
-            }
-            try {
-                stmt.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER DEFAULT 1");
-            } catch (Exception e) {
-                // Ignorar si la columna ya existe
-            }
 
             // Tabla Configuración (AFIP token, URL, etc.)
             stmt.execute("""
@@ -142,7 +207,7 @@ public class DatabaseService {
                 )
             """);
 
-            // Tabla Cache AFIP (proxy de cache para evitar consultas repetidas)
+            // Tabla Cache AFIP
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS cache_afip (
                     dni VARCHAR(20) PRIMARY KEY,
@@ -191,63 +256,7 @@ public class DatabaseService {
                 )
             """);
 
-            // --- Migración de versión de base de datos ---
-            int currentVersion = 0;
-            try (java.sql.ResultSet rsVer = stmt.executeQuery("SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
-                if (rsVer.next()) {
-                    currentVersion = Integer.parseInt(rsVer.getString("valor"));
-                }
-            } catch (Exception e) {
-                // Si falla (ej. tabla configuración no estaba creada antes), la versión queda en 0
-            }
-
-            // Crear un backup solamente cuando realmente hay migraciones pendientes.
-            if (currentVersion < LATEST_DB_VERSION && customDbUrl == null) {
-                String backupPath = obtenerRutaDB() + ".backup-" + System.currentTimeMillis() + ".db";
-                try (Statement stmtBackup = conn.createStatement()) {
-                    stmtBackup.execute("VACUUM INTO '" + backupPath.replace("\\", "/") + "'");
-                    logger.info("Backup creado exitosamente en: " + backupPath);
-                } catch (Exception ex) {
-                    logger.warn("No se pudo crear backup de seguridad antes de migrar. Abortando migración.", ex);
-                    throw ex;
-                }
-            }
-
-            conn.setAutoCommit(false);
-            try {
-                if (currentVersion < 1) {
-                    logger.info("Iniciando migración de base de datos a versión 1 (Conversión a centavos)...");
-                    // Como db_version < 1, asumimos que toda la base es legacy y multiplicamos incondicionalmente por 100.
-                    stmt.execute("UPDATE boletas SET total = CAST(ROUND(total * 100) AS INTEGER)");
-                    stmt.execute("UPDATE boleta_items SET precio_unitario = CAST(ROUND(precio_unitario * 100) AS INTEGER)");
-                    stmt.execute("UPDATE boleta_items SET subtotal = CAST(ROUND(subtotal * 100) AS INTEGER)");
-                    stmt.execute("UPDATE productos SET precio = CAST(ROUND(precio * 100) AS INTEGER)");
-                    stmt.execute("UPDATE presupuestos SET monto_estimado = CAST(ROUND(monto_estimado * 100) AS INTEGER)");
-                    
-                    stmt.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_version', '1')");
-                    logger.info("Migración a versión 1 exitosa.");
-                }
-
-                if (currentVersion < 2) {
-                    logger.info("Iniciando migración de base de datos a versión 2 (Emisores)...");
-                    stmt.execute("CREATE TABLE IF NOT EXISTS emisores (" +
-                            "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                            "nombre TEXT NOT NULL, " +
-                            "cuit TEXT NOT NULL, " +
-                            "calle TEXT, " +
-                            "telefono TEXT)");
-                    stmt.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_version', '2')");
-                    logger.info("Migración a versión 2 exitosa.");
-                }
-
-                conn.commit();
-            } catch (Exception e) {
-                conn.rollback();
-                logger.error("Error crítico durante la migración. Rollback ejecutado.", e);
-                throw e; // Abort startup
-            } finally {
-                conn.setAutoCommit(true);
-            }
+            ejecutarMigraciones(conn, MIGRACIONES);
 
             // Seed: configuración AFIP por defecto si no existe
             var rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion");
@@ -294,6 +303,55 @@ public class DatabaseService {
         } catch (Exception e) {
             logger.error("Error crítico inicializando base de datos:", e);
             throw e;
+        }
+    }
+
+    public static void ejecutarMigraciones(Connection conn, List<Migration> migraciones) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            for (Migration m : migraciones) {
+                boolean alreadyApplied = false;
+                try (java.sql.ResultSet rs = stmt.executeQuery("SELECT 1 FROM schema_migrations WHERE version = " + m.version())) {
+                    if (rs.next()) {
+                        alreadyApplied = true;
+                    }
+                } catch (Exception e) {
+                    // Ignore, maybe schema_migrations doesn't exist? (It should, we created it above)
+                }
+
+                if (alreadyApplied) continue;
+
+                long start = System.currentTimeMillis();
+                boolean originalAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+                try {
+                    m.action().execute(conn);
+
+                    long elapsed = System.currentTimeMillis() - start;
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(
+                            "INSERT INTO schema_migrations (version, descripcion, ms_transcurridos) VALUES (?, ?, ?)")) {
+                        ps.setInt(1, m.version());
+                        ps.setString(2, m.descripcion());
+                        ps.setLong(3, elapsed);
+                        ps.executeUpdate();
+                    }
+                    conn.commit();
+                    logger.info("Migración a versión {} exitosa: {}", m.version(), m.descripcion());
+                } catch (Exception e) {
+                    try {
+                        conn.rollback();
+                    } catch (Exception rollbackEx) {
+                        e.addSuppressed(rollbackEx);
+                    }
+                    logger.error("Error crítico durante la migración a versión {}. Rollback ejecutado.", m.version(), e);
+                    throw new PersistenceException("Error durante la migración a versión " + m.version(), e);
+                } finally {
+                    try {
+                        conn.setAutoCommit(originalAutoCommit);
+                    } catch (Exception ex) {
+                        logger.error("Error restaurando autocommit tras migración.", ex);
+                    }
+                }
+            }
         }
     }
 

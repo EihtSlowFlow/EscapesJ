@@ -43,14 +43,12 @@ public class VentanaLogin extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Acceso");
-        setSize(450, 550);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        getContentPane().setBackground(new Color(0, 43, 91));
-        setLayout(new BorderLayout());
+        JPanel content = new JPanel(new BorderLayout());
+        content.setBackground(new Color(0, 43, 91));
 
         // 1. Logo arriba
-        add(new PanelCabecera(), BorderLayout.NORTH);
+        content.add(new PanelCabecera(), BorderLayout.NORTH);
 
         // 2. Formulario
         JPanel pnlForm = new JPanel(new GridBagLayout());
@@ -107,7 +105,13 @@ public class VentanaLogin extends JFrame {
         gbc.insets = new Insets(0, 10, 10, 10);
         pnlForm.add(btnOlvide, gbc);
 
-        add(pnlForm, BorderLayout.CENTER);
+        content.add(pnlForm, BorderLayout.CENTER);
+
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        setContentPane(scrollPane);
+        ZoomManager.packAndFitToScreen(this, 450, 550);
 
         // CONFIGURACIÓN DE UX
         this.getRootPane().setDefaultButton(btnIngresar); // Enter para entrar

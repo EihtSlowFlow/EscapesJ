@@ -26,7 +26,7 @@ public class VentanaGestionServicios extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Historial de Servicios");
-        setSize(900, 650);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
         setLayout(new BorderLayout(10, 10));
@@ -263,6 +263,7 @@ public class VentanaGestionServicios extends JFrame {
         t.setForeground(Color.WHITE);
         t.setGridColor(new Color(70, 80, 105));
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setFont(new Font("SansSerif", Font.PLAIN, 14));
         t.setSelectionBackground(new Color(52, 152, 219));
         t.getTableHeader().setBackground(new Color(30, 35, 48));

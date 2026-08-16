@@ -23,7 +23,7 @@ public class VentanaGestionInventario extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Inventario (Modo Separado)");
-        setSize(1100, 650);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
         setLayout(new BorderLayout(15, 15));
@@ -49,12 +49,9 @@ public class VentanaGestionInventario extends JFrame {
         scrollTabla.setOpaque(true);
         scrollTabla.getViewport().setOpaque(true);
         scrollTabla.setBorder(BorderFactory.createEmptyBorder());
-        add(scrollTabla, BorderLayout.CENTER);
-
         // 2. PANEL DERECHO: EXCLUSIVO PARA NUEVOS
         JPanel pnlNuevo = new JPanel(new GridBagLayout());
         pnlNuevo.setOpaque(false);
-        pnlNuevo.setPreferredSize(new Dimension(350, 0));
         pnlNuevo.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.CYAN), "CARGAR NUEVO PRODUCTO", 0, 0, null, Color.CYAN));
 
@@ -76,7 +73,16 @@ public class VentanaGestionInventario extends JFrame {
         gbc.gridy = 10;
         pnlNuevo.add(btnGuardar, gbc);
 
-        add(pnlNuevo, BorderLayout.EAST);
+        JScrollPane scrollNuevo = new JScrollPane(pnlNuevo);
+        scrollNuevo.setBorder(null);
+        scrollNuevo.setPreferredSize(new Dimension(350, 0));
+        scrollNuevo.getVerticalScrollBar().setUnitIncrement(16);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollTabla, scrollNuevo);
+        splitPane.setBorder(null);
+        splitPane.setResizeWeight(0.75);
+        SwingUtilities.invokeLater(() -> splitPane.setDividerLocation(0.75));
+        add(splitPane, BorderLayout.CENTER);
     }
 
     private void registrarNuevo() {
@@ -184,6 +190,7 @@ public class VentanaGestionInventario extends JFrame {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(35);
+        ZoomManager.registerBaseRowHeight(t, 35);
         t.setFillsViewportHeight(true);
         t.setOpaque(true);
         t.getTableHeader().setBackground(new Color(30, 35, 48));

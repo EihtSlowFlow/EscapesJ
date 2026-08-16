@@ -551,12 +551,27 @@ public class VentanaPrincipal extends JFrame {
                 txtNombre.setToolTipText("Ingresá el nombre del cliente manualmente");
             }, SwingUtilities::invokeLater)
             .exceptionally(ex -> {
-                SwingUtilities.invokeLater(() -> {
-                    btnBuscar.setEnabled(true);
-                    txtDni.setText(dniIngresado);
-                    txtNombre.setText("Error al buscar");
-                    txtNombre.setForeground(new Color(255, 100, 100));
-                });
+                Throwable cause = ex;
+                while (cause instanceof java.util.concurrent.CompletionException || cause instanceof java.util.concurrent.ExecutionException) {
+                    cause = cause.getCause();
+                }
+                if (cause instanceof io.github.ramiro.escapesj.persistencia.PersistenceException pEx) {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtNombre.setText("");
+                        txtNombre.setForeground(Color.WHITE);
+                        txtNombre.setEditable(true);
+                        txtNombre.setBackground(new Color(60, 60, 80));
+                        ErrorHandler.mostrarErrorPersistencia(VentanaPrincipal.this, "buscar cliente", pEx);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtDni.setText(dniIngresado);
+                        txtNombre.setText("Error al buscar");
+                        txtNombre.setForeground(new Color(255, 100, 100));
+                    });
+                }
                 return null;
             });
     }
@@ -703,7 +718,7 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this,
                     "Error procesando la facturación. Los cambios fueron revertidos.\n" + e.getMessage(),
                     "Error en Transacción", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            logger.error("Error en facturación", e);
             return; // Detener flujo, no limpiar el formulario ni generar PDF
         }
 

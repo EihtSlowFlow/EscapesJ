@@ -436,12 +436,27 @@ public class VentanaPresupuesto extends JFrame {
                 txtNombre.requestFocus();
             }, SwingUtilities::invokeLater)
             .exceptionally(ex -> {
-                SwingUtilities.invokeLater(() -> {
-                    btnBuscar.setEnabled(true);
-                    txtDni.setText(dni);
-                    txtNombre.setText("Error al buscar");
-                    txtNombre.setForeground(new Color(255, 100, 100));
-                });
+                Throwable cause = ex;
+                while (cause instanceof java.util.concurrent.CompletionException || cause instanceof java.util.concurrent.ExecutionException) {
+                    cause = cause.getCause();
+                }
+                if (cause instanceof io.github.ramiro.escapesj.persistencia.PersistenceException pEx) {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtNombre.setText("");
+                        txtNombre.setForeground(Color.WHITE);
+                        txtNombre.setEditable(true);
+                        txtNombre.setBackground(new Color(60, 60, 80));
+                        ErrorHandler.mostrarErrorPersistencia(VentanaPresupuesto.this, "buscar cliente", pEx);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtDni.setText(dni);
+                        txtNombre.setText("Error al buscar");
+                        txtNombre.setForeground(new Color(255, 100, 100));
+                    });
+                }
                 return null;
             });
     }

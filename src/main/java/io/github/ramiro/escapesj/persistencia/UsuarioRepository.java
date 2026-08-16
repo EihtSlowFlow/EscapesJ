@@ -169,7 +169,7 @@ public class UsuarioRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error obteniendo pregunta:", e);
             throw new PersistenceException("Error obteniendo pregunta", e);
         }
         return Optional.empty();
@@ -190,7 +190,7 @@ public class UsuarioRepository {
             ps.setString(3, usuario);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error configurando pregunta:", e);
             throw new PersistenceException("Error configurando pregunta", e);
         }
     }
@@ -212,9 +212,54 @@ public class UsuarioRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error validando respuesta:", e);
             throw new PersistenceException("Error validando respuesta", e);
         }
         return false;
+    }
+
+    public void actualizarCredenciales(String usuarioActual, String usuarioNuevo, String passwordNueva, String pregunta, String respuestaPlana) {
+        try {
+            TransactionHelper.runInTransaction(connection -> {
+                // 1. Cambiar usuario
+                if (usuarioNuevo != null && !usuarioNuevo.isBlank() && !usuarioActual.equals(usuarioNuevo)) {
+                    String sqlUsr = "UPDATE usuarios SET usuario = ? WHERE usuario = ?";
+                    try (PreparedStatement ps = connection.prepareStatement(sqlUsr)) {
+                        ps.setString(1, usuarioNuevo);
+                        ps.setString(2, usuarioActual);
+                        ps.executeUpdate();
+                    }
+                }
+                String usuarioDestino = (usuarioNuevo != null && !usuarioNuevo.isBlank()) ? usuarioNuevo : usuarioActual;
+
+                // 2. Cambiar contraseña
+                if (passwordNueva != null && !passwordNueva.isBlank()) {
+                    String hashNueva = BCrypt.hashpw(passwordNueva, BCrypt.gensalt());
+                    String sqlPwd = "UPDATE usuarios SET password = ?, debe_cambiar_password = 0 WHERE usuario = ?";
+                    try (PreparedStatement ps = connection.prepareStatement(sqlPwd)) {
+                        ps.setString(1, hashNueva);
+                        ps.setString(2, usuarioDestino);
+                        ps.executeUpdate();
+                    }
+                }
+
+                // 3. Configurar pregunta de seguridad
+                if (pregunta != null && !pregunta.isBlank() && respuestaPlana != null && !respuestaPlana.isBlank()) {
+                    String respuestaNormalizada = respuestaPlana.trim().toLowerCase();
+                    String respuestaHash = BCrypt.hashpw(respuestaNormalizada, BCrypt.gensalt());
+                    String sqlSec = "UPDATE usuarios SET pregunta_seguridad = ?, respuesta_seguridad = ? WHERE usuario = ?";
+                    try (PreparedStatement ps = connection.prepareStatement(sqlSec)) {
+                        ps.setString(1, pregunta);
+                        ps.setString(2, respuestaHash);
+                        ps.setString(3, usuarioDestino);
+                        ps.executeUpdate();
+                    }
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error actualizando credenciales", e);
+        }
     }
 }

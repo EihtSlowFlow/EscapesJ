@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ public class PresupuestoRepository {
                 int max = rs.getInt(1);
                 return String.format("PRE-%04d", max + 1);
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error generando código único", e);
         }
@@ -67,7 +68,7 @@ public class PresupuestoRepository {
             pstmt.setString(7, fechaLimite);
             pstmt.executeUpdate();
             return codigo;
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error creando presupuesto", e);
         }
@@ -99,7 +100,7 @@ public class PresupuestoRepository {
                     );
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error buscando presupuesto por código", e);
         }
@@ -133,7 +134,7 @@ public class PresupuestoRepository {
                     ));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error buscando presupuesto por DNI", e);
         }

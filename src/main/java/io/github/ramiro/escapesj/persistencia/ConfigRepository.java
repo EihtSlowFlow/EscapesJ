@@ -4,6 +4,7 @@ import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Optional;
 
 public class ConfigRepository {
@@ -34,23 +35,45 @@ public class ConfigRepository {
     }
 
     /**
-     * Guarda o actualiza un valor de configuración.
+     * Guarda o actualiza un valor de configuración (abre su propia conexión).
      */
     public void guardar(String clave, String valor) {
+        try (Connection connection = DatabaseService.getConnection()) {
+            guardar(connection, clave, valor);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar la configuración: " + clave, e);
+        }
+    }
+
+    /**
+     * Guarda múltiples valores de forma atómica.
+     */
+    public void guardarMultiples(Map<String, String> configuraciones) {
+        try {
+            TransactionHelper.runInTransaction(connection -> {
+                for (Map.Entry<String, String> entry : configuraciones.entrySet()) {
+                    guardar(connection, entry.getKey(), entry.getValue());
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error guardando configuraciones múltiples", e);
+        }
+    }
+
+    private void guardar(Connection connection, String clave, String valor) throws SQLException {
         if ("afip.access_token".equals(clave)) {
             valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
         }
 
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
-        try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            logger.error("Error:", e);
-            throw new PersistenceException("Error al guardar la configuración: " + clave, e);
         }
     }
 

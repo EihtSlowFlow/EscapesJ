@@ -33,8 +33,7 @@ public class CryptoUtil {
         try {
             initMasterKey();
         } catch (Exception e) {
-            logger.error("Advertencia crítica: Error inicializando CryptoUtil: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Advertencia crítica: Error inicializando CryptoUtil: " + e.getMessage(), e);
         }
     }
 

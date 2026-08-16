@@ -39,11 +39,9 @@ public class VentanaConfiguracion extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Configuración");
-        setSize(550, 780);
-        setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        getContentPane().setBackground(new Color(0, 43, 91));
-        setLayout(new BorderLayout(10, 10));
+        JPanel content = new JPanel(new BorderLayout(10, 10));
+        content.setBackground(new Color(0, 43, 91));
 
         // Cabecera
         JPanel pnlHeader = new JPanel(new GridBagLayout());
@@ -53,7 +51,7 @@ public class VentanaConfiguracion extends JFrame {
         lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 22));
         lblTitulo.setForeground(Color.WHITE);
         pnlHeader.add(lblTitulo);
-        add(pnlHeader, BorderLayout.NORTH);
+        content.add(pnlHeader, BorderLayout.NORTH);
 
         // Panel principal de pestañas
         JTabbedPane tabbedPane = new JTabbedPane();
@@ -114,6 +112,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlCert.add(txtCertPath, BorderLayout.CENTER);
         JButton btnCert = new JButton("📂");
         btnCert.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnCert);
         btnCert.addActionListener(e -> elegirArchivoFichero(txtCertPath, "crt"));
         pnlCert.add(btnCert, BorderLayout.EAST);
         pnlAfip.add(pnlCert, gbc);
@@ -131,6 +130,7 @@ public class VentanaConfiguracion extends JFrame {
         pnlKey.add(txtKeyPath, BorderLayout.CENTER);
         JButton btnKey = new JButton("📂");
         btnKey.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnKey);
         btnKey.addActionListener(e -> elegirArchivoFichero(txtKeyPath, "key"));
         pnlKey.add(btnKey, BorderLayout.EAST);
         pnlAfip.add(pnlKey, gbc);
@@ -247,11 +247,13 @@ public class VentanaConfiguracion extends JFrame {
         JButton btnRestaurarBoletas = new JButton("🔄");
         btnRestaurarBoletas.setToolTipText("Restablecer ruta por defecto");
         btnRestaurarBoletas.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnRestaurarBoletas);
         btnRestaurarBoletas.addActionListener(e -> txtRutaBoletas.setText(ConfigRepository.getDefaultBoletasPath()));
         pnlBotonesBoletas.add(btnRestaurarBoletas);
 
         JButton btnBoletasDir = new JButton("📂");
         btnBoletasDir.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnBoletasDir);
         btnBoletasDir.addActionListener(e -> elegirDirectorio(txtRutaBoletas));
         pnlBotonesBoletas.add(btnBoletasDir);
 
@@ -273,11 +275,13 @@ public class VentanaConfiguracion extends JFrame {
         JButton btnRestaurarPresup = new JButton("🔄");
         btnRestaurarPresup.setToolTipText("Restablecer ruta por defecto");
         btnRestaurarPresup.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnRestaurarPresup);
         btnRestaurarPresup.addActionListener(e -> txtRutaPresupuestos.setText(ConfigRepository.getDefaultPresupuestosPath()));
         pnlBotonesPresup.add(btnRestaurarPresup);
 
         JButton btnPresupDir = new JButton("📂");
         btnPresupDir.setPreferredSize(new Dimension(45, 30));
+        ZoomManager.scaleExplicitSize(btnPresupDir);
         btnPresupDir.addActionListener(e -> elegirDirectorio(txtRutaPresupuestos));
         pnlBotonesPresup.add(btnPresupDir);
 
@@ -325,7 +329,12 @@ public class VentanaConfiguracion extends JFrame {
         pnlApariencia.add(Box.createVerticalGlue(), appearanceConstraints);
         tabbedPane.addTab("Apariencia", pnlApariencia);
 
-        add(tabbedPane, BorderLayout.CENTER);
+        content.add(tabbedPane, BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        setContentPane(scrollPane);
+        ZoomManager.packAndFitToScreen(this, 550, 780);
     }
 
     private void cargarDatos() {

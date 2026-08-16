@@ -263,6 +263,7 @@ public class VentanaGestionServicios extends JFrame {
         t.setForeground(Color.WHITE);
         t.setGridColor(new Color(70, 80, 105));
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setFont(new Font("SansSerif", Font.PLAIN, 14));
         t.setSelectionBackground(new Color(52, 152, 219));
         t.getTableHeader().setBackground(new Color(30, 35, 48));

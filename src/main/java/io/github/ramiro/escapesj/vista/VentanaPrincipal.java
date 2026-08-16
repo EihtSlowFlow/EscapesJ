@@ -132,6 +132,7 @@ public class VentanaPrincipal extends JFrame {
         btnBuscarDni.setFocusPainted(false);
         btnBuscarDni.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuscarDni.setPreferredSize(new Dimension(90, 30));
+        ZoomManager.scaleExplicitSize(btnBuscarDni);
         btnBuscarDni.setBorder(BorderFactory.createLineBorder(new Color(52, 152, 219).brighter(), 1));
         filaDni.add(btnBuscarDni, gbc);
 
@@ -214,6 +215,7 @@ public class VentanaPrincipal extends JFrame {
         btnBuscarProd.setFocusPainted(false);
         btnBuscarProd.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuscarProd.setPreferredSize(new Dimension(90, 30));
+        ZoomManager.scaleExplicitSize(btnBuscarProd);
         btnBuscarProd.setBorder(BorderFactory.createLineBorder(new Color(46, 125, 50).brighter(), 1));
         filaProd.add(btnBuscarProd, gbc);
 
@@ -282,6 +284,7 @@ public class VentanaPrincipal extends JFrame {
         btnAgregar.setFocusPainted(false);
         btnAgregar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAgregar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        ZoomManager.scaleExplicitSize(btnAgregar);
         btnAgregar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnAgregar.setBorder(BorderFactory.createLineBorder(new Color(231, 76, 60).brighter(), 1));
         formPanel.add(btnAgregar);
@@ -361,6 +364,7 @@ public class VentanaPrincipal extends JFrame {
         btnFinalizar.setFocusPainted(false);
         btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnFinalizar.setPreferredSize(new Dimension(0, 45));
+        ZoomManager.scaleExplicitSize(btnFinalizar);
         btnFinalizar.setBorder(BorderFactory.createLineBorder(new Color(46, 204, 113).brighter(), 1));
         
         pnlInferiorOpciones.add(btnFinalizar, BorderLayout.CENTER);
@@ -851,6 +855,7 @@ public class VentanaPrincipal extends JFrame {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setGridColor(new Color(70, 80, 105));
         t.setFont(new Font("SansSerif", Font.PLAIN, 13));
         t.getTableHeader().setBackground(new Color(30, 35, 48));

@@ -32,6 +32,7 @@ public class ZoomManager {
     private static final String BASE_MINIMUM_SIZE = "zoom.baseMinimumSize";
     private static final String BASE_MAXIMUM_SIZE = "zoom.baseMaximumSize";
     private static final String BASE_MARGIN = "zoom.baseMargin";
+    private static final String SCALE_SIZE = "zoom.scaleSize";
 
     // Caché inmutable de los valores base para evitar zoom acumulativo
     private static final Map<Object, Object> baseDefaults = new HashMap<>();
@@ -219,6 +220,9 @@ public class ZoomManager {
     }
 
     private static void scaleExplicitSizes(JComponent component) {
+        if (!Boolean.TRUE.equals(component.getClientProperty(SCALE_SIZE))) {
+            return;
+        }
         scaleDimensionProperty(component, BASE_PREFERRED_SIZE, component.isPreferredSizeSet(), component.getPreferredSize(), component::setPreferredSize);
         scaleDimensionProperty(component, BASE_MINIMUM_SIZE, component.isMinimumSizeSet(), component.getMinimumSize(), component::setMinimumSize);
         scaleDimensionProperty(component, BASE_MAXIMUM_SIZE, component.isMaximumSizeSet(), component.getMaximumSize(), component::setMaximumSize);
@@ -264,11 +268,6 @@ public class ZoomManager {
             return;
         }
         Integer base = (Integer) table.getClientProperty(BASE_ROW_HEIGHT);
-        int defaultHeight = UIManager.getDefaults().getInt("Table.rowHeight");
-        if (base == null && table.getRowHeight() != defaultHeight) {
-            base = table.getRowHeight();
-            table.putClientProperty(BASE_ROW_HEIGHT, base);
-        }
         if (base != null) {
             table.setRowHeight(scale(base));
         }
@@ -276,6 +275,28 @@ public class ZoomManager {
             scaleExplicitFont(table.getTableHeader());
             scaleExplicitSizes(table.getTableHeader());
         }
+    }
+
+    public static void scaleExplicitSize(JComponent component) {
+        component.putClientProperty(SCALE_SIZE, Boolean.TRUE);
+    }
+
+    public static void registerBaseRowHeight(JTable table, int baseRowHeight) {
+        table.putClientProperty(BASE_ROW_HEIGHT, baseRowHeight);
+        table.setRowHeight(scale(baseRowHeight));
+    }
+
+    public static void packAndFitToScreen(Window window, int baseWidth, int baseHeight) {
+        window.pack();
+        GraphicsConfiguration configuration = window.getGraphicsConfiguration();
+        Rectangle bounds = configuration.getBounds();
+        Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(configuration);
+        int availableWidth = bounds.width - screenInsets.left - screenInsets.right;
+        int availableHeight = bounds.height - screenInsets.top - screenInsets.bottom;
+        int desiredWidth = Math.max(window.getWidth(), scale(baseWidth));
+        int desiredHeight = Math.max(window.getHeight(), scale(baseHeight));
+        window.setSize(Math.min(desiredWidth, availableWidth), Math.min(desiredHeight, availableHeight));
+        window.setLocationRelativeTo(window.getOwner());
     }
 
     // --- Utilidades para componentes de tamaño fijo o fuentes instanciadas manualmente ---

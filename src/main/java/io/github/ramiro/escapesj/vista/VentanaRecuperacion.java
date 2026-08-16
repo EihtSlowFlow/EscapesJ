@@ -26,9 +26,7 @@ public class VentanaRecuperacion extends JDialog {
         super(parent, "Recuperación de Contraseña", true);
         this.usuarioRepository = usuarioRepository;
 
-        setSize(400, 300);
-        setLocationRelativeTo(parent);
-        setResizable(false);
+        setResizable(true);
 
         cardLayout = new CardLayout();
         cardsPanel = new JPanel(cardLayout);
@@ -37,7 +35,11 @@ public class VentanaRecuperacion extends JDialog {
         cardsPanel.add(crearPanelPregunta(), "Paso2");
         cardsPanel.add(crearPanelReset(), "Paso3");
 
-        add(cardsPanel);
+        JScrollPane scrollPane = new JScrollPane(cardsPanel);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        setContentPane(scrollPane);
+        ZoomManager.packAndFitToScreen(this, 400, 300);
     }
 
     private JPanel crearPanelUsuario() {

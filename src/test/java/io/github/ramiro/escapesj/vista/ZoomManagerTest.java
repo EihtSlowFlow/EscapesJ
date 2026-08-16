@@ -136,8 +136,9 @@ public class ZoomManagerTest {
         JButton button = new JButton("Guardar");
         button.setFont(new Font("SansSerif", Font.BOLD, 13));
         button.setPreferredSize(new Dimension(100, 30));
+        ZoomManager.scaleExplicitSize(button);
         JTable table = new JTable(2, 2);
-        table.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(table, 30);
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         panel.add(button);
         panel.add(table);
@@ -154,6 +155,32 @@ public class ZoomManagerTest {
         ZoomManager.applyScaleToTree(panel);
         assertEquals(15.6f, button.getFont().getSize2D(), 0.01f);
         assertEquals(36, table.getRowHeight());
+    }
+
+    @Test
+    public void testNoEscalaDimensionesEstructuralesSinMarcaExplicita() {
+        configRepo.guardar("ui.scale_percent", "100");
+        ZoomManager.inicializar(configRepo);
+        JPanel structuralPanel = new JPanel();
+        structuralPanel.setPreferredSize(new Dimension(0, 280));
+
+        ZoomManager.aumentar();
+        ZoomManager.applyScaleToTree(structuralPanel);
+
+        assertEquals(new Dimension(0, 280), structuralPanel.getPreferredSize());
+    }
+
+    @Test
+    public void testAlturaDeFilaConZoomPersistidoUsaBaseDeclarada() {
+        configRepo.guardar("ui.scale_percent", "150");
+        ZoomManager.inicializar(configRepo);
+        JTable table = new JTable(1, 1);
+
+        ZoomManager.registerBaseRowHeight(table, 30);
+        assertEquals(45, table.getRowHeight());
+
+        ZoomManager.applyScaleToTree(table);
+        assertEquals(45, table.getRowHeight());
     }
 
     @Test

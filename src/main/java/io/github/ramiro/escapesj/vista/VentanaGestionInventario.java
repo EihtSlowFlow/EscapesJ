@@ -184,6 +184,7 @@ public class VentanaGestionInventario extends JFrame {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(35);
+        ZoomManager.registerBaseRowHeight(t, 35);
         t.setFillsViewportHeight(true);
         t.setOpaque(true);
         t.getTableHeader().setBackground(new Color(30, 35, 48));

@@ -62,6 +62,7 @@ public class DialogoInventario extends JDialog {
         btnConfirmar.setForeground(Color.WHITE);
         btnConfirmar.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnConfirmar.setPreferredSize(new Dimension(0, 50));
+        ZoomManager.scaleExplicitSize(btnConfirmar);
         btnConfirmar.addActionListener(e -> confirmarSeleccion());
 
         add(btnConfirmar, BorderLayout.SOUTH);
@@ -103,6 +104,7 @@ public class DialogoInventario extends JDialog {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setSelectionBackground(new Color(52, 152, 219));
         t.getTableHeader().setBackground(new Color(30, 35, 48));
         t.getTableHeader().setForeground(Color.WHITE);

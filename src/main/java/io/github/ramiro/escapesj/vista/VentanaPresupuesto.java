@@ -208,6 +208,7 @@ public class VentanaPresupuesto extends JFrame {
         btnAgregar.setFocusPainted(false);
         btnAgregar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAgregar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        ZoomManager.scaleExplicitSize(btnAgregar);
         btnAgregar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnAgregar.setBorder(BorderFactory.createLineBorder(new Color(231, 76, 60).brighter(), 1));
         formPanel.add(btnAgregar);
@@ -334,6 +335,7 @@ public class VentanaPresupuesto extends JFrame {
         btnGenerar.setFocusPainted(false);
         btnGenerar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnGenerar.setPreferredSize(new Dimension(0, 42));
+        ZoomManager.scaleExplicitSize(btnGenerar);
         btnGenerar.setBorder(BorderFactory.createLineBorder(new Color(155, 89, 182).brighter(), 1));
         pnlBotones.add(btnGenerar);
 
@@ -724,6 +726,7 @@ public class VentanaPresupuesto extends JFrame {
         b.setFocusPainted(false);
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
         b.setPreferredSize(new Dimension(ancho, 30));
+        ZoomManager.scaleExplicitSize(b);
         b.setBorder(BorderFactory.createLineBorder(color.brighter(), 1));
         return b;
     }
@@ -765,6 +768,7 @@ public class VentanaPresupuesto extends JFrame {
         tabla.getTableHeader().setForeground(Color.WHITE);
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         tabla.setRowHeight(22);
+        ZoomManager.registerBaseRowHeight(tabla, 22);
     }
 
     private class PanelCabecera extends JPanel {

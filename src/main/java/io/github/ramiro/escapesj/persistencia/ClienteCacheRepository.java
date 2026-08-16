@@ -1,6 +1,9 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -14,6 +17,8 @@ import java.util.Optional;
  * Por defecto las entradas expiran después de 30 días.
  */
 public class ClienteCacheRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ClienteCacheRepository.class);
+
     private static final int DIAS_EXPIRACION = diasHastaFinDeMes();
 
     /**
@@ -58,7 +63,8 @@ public class ClienteCacheRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar DNI en cache", e);
         }
         return Optional.empty();
     }
@@ -79,7 +85,8 @@ public class ClienteCacheRepository {
             ps.setString(5, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar DNI en cache", e);
         }
     }
 
@@ -93,7 +100,8 @@ public class ClienteCacheRepository {
             ps.setString(1, dni);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al eliminar DNI del cache", e);
         }
     }
 
@@ -110,8 +118,8 @@ public class ClienteCacheRepository {
             ps.setString(1, limite);
             return ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
-            return 0;
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al limpiar expirados", e);
         }
     }
 

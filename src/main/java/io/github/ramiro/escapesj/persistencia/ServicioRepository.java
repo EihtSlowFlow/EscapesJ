@@ -3,16 +3,36 @@ package io.github.ramiro.escapesj.persistencia;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ServicioRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ServicioRepository.class);
+
 
     public ServicioRepository() {
     }
 
     public void registrar(ServicioRealizado s) {
-        registrar(this.connection, s);
+        registrarServicio(s.getDni(), s.getNombre(), s.getTrabajo(), s.getFecha());
+    }
+
+    public void registrarServicio(String dni, String nombre, String trabajo, String fecha) {
+        String sql = "INSERT INTO servicios_historial (dni, nombre, trabajo, fecha) VALUES (?, ?, ?, ?)";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, dni);
+            ps.setString(2, nombre);
+            ps.setString(3, trabajo);
+            ps.setString(4, fecha);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error registrando servicio", e);
+        }
     }
 
     public void registrar(Connection txConn, ServicioRealizado s) {
@@ -24,8 +44,8 @@ public class ServicioRepository {
             ps.setString(4, s.getFecha());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Error registrando servicio", e);
+            logger.error("Error registrando servicio:", e);
+            throw new PersistenceException("Error registrando servicio", e);
         }
     }
 
@@ -41,7 +61,8 @@ public class ServicioRepository {
                         rs.getString("trabajo"), rs.getString("fecha")));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando servicios", e);
         }
         return lista;
     }

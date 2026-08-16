@@ -3,11 +3,16 @@ package io.github.ramiro.escapesj.persistencia;
 import io.github.ramiro.escapesj.modelo.Producto;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class ProductoRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ProductoRepository.class);
+
 
     public ProductoRepository() {
     }
@@ -23,30 +28,32 @@ public class ProductoRepository {
             ps.setString(1, p.getCodigo());
             ps.setString(2, p.getNombre());
             ps.setString(3, p.getDescripcion());
-            ps.setBigDecimal(4, p.getPrecio());
+            ps.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(p.getPrecio()));
             ps.setInt(5, p.getStock());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar producto", e);
         }
     }
 
     /**
      * Permite modificar incluso el código (llave primaria) usando el código anterior como referencia.
      */
-    public void actualizarConCambioDeCodigo(Producto p, String viejoCodigo) {
+    public void actualizarConCambioDeCodigo(Producto producto, String viejoCodigo) {
         String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=? WHERE codigo=?";
         try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, p.getCodigo());
-            ps.setString(2, p.getNombre());
-            ps.setString(3, p.getDescripcion());
-            ps.setBigDecimal(4, p.getPrecio());
-            ps.setInt(5, p.getStock());
-            ps.setString(6, viejoCodigo);
-            ps.executeUpdate();
+             PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, producto.getCodigo());
+            pstmt.setString(2, producto.getNombre());
+            pstmt.setString(3, producto.getDescripcion());
+            pstmt.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(producto.getPrecio()));
+            pstmt.setInt(5, producto.getStock());
+            pstmt.setString(6, viejoCodigo);
+            pstmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al actualizar producto", e);
         }
     }
 
@@ -65,12 +72,13 @@ public class ProductoRepository {
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getBigDecimal("precio"),
+                        io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
                         rs.getInt("stock")
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar producto", e);
         }
         return Optional.empty();
     }
@@ -88,12 +96,13 @@ public class ProductoRepository {
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
-                        rs.getBigDecimal("precio"),
+                        io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
                         rs.getInt("stock")
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar productos", e);
         }
         return lista;
     }
@@ -103,7 +112,8 @@ public class ProductoRepository {
      */
     public boolean verificarStockDisponible(String codigo, int cantidad) {
         String sql = "SELECT stock FROM productos WHERE codigo = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, codigo);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -111,7 +121,8 @@ public class ProductoRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error al verificar stock", e);
+            throw new PersistenceException("Error al verificar stock", e);
         }
         return false;
     }
@@ -120,7 +131,11 @@ public class ProductoRepository {
      * Resta unidades del inventario al confirmar una venta.
      */
     public boolean intentarRestarStock(String codigo, int cantidad) {
-        return intentarRestarStock(this.connection, codigo, cantidad);
+        try (Connection connection = DatabaseService.getConnection()) {
+            return intentarRestarStock(connection, codigo, cantidad);
+        } catch (SQLException e) {
+            throw new PersistenceException("Error al intentar restar stock", e);
+        }
     }
 
     public boolean intentarRestarStock(Connection txConn, String codigo, int cantidad) {
@@ -131,7 +146,35 @@ public class ProductoRepository {
             ps.setInt(3, cantidad);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            return false;
+            throw new PersistenceException("Error al intentar restar stock en tx", e);
+        }
+    }
+
+    public boolean actualizarStock(String codigo, int nuevoStock) {
+        String sql = "UPDATE productos SET stock = ? WHERE codigo = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, nuevoStock);
+            ps.setString(2, codigo);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al actualizar stock", e);
+        }
+    }
+
+    /**
+     * Elimina un producto.
+     */
+    public boolean eliminarProducto(String codigo) {
+        String sql = "DELETE FROM productos WHERE codigo = ?";
+        try (Connection connection = DatabaseService.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, codigo);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al eliminar producto", e);
         }
     }
 
@@ -146,7 +189,8 @@ public class ProductoRepository {
             ps.setString(2, codigo);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al sumar stock", e);
         }
     }
 }

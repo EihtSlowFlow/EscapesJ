@@ -1,8 +1,12 @@
 package io.github.ramiro.escapesj.persistencia;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -12,6 +16,8 @@ import java.util.List;
  * Repositorio para presupuestos: creación, búsqueda y validación por código único.
  */
 public class PresupuestoRepository {
+    private static final Logger logger = LoggerFactory.getLogger(PresupuestoRepository.class);
+
 
     public PresupuestoRepository() {
     }
@@ -32,8 +38,9 @@ public class PresupuestoRepository {
                 int max = rs.getInt(1);
                 return String.format("PRE-%04d", max + 1);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error generando código único", e);
         }
         return "PRE-0001";
     }
@@ -56,14 +63,14 @@ public class PresupuestoRepository {
             pstmt.setString(2, dniCliente);
             pstmt.setString(3, nombreCliente);
             pstmt.setString(4, descripcionTrabajo);
-            pstmt.setBigDecimal(5, montoEstimado);
+            pstmt.setLong(5, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(montoEstimado));
             pstmt.setString(6, fechaEmision);
             pstmt.setString(7, fechaLimite);
             pstmt.executeUpdate();
             return codigo;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error creando presupuesto", e);
         }
     }
 
@@ -87,14 +94,15 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getBigDecimal("monto_estimado"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("monto_estimado")),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     );
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando presupuesto por código", e);
         }
         return null;
     }
@@ -120,14 +128,15 @@ public class PresupuestoRepository {
                             rs.getString("dni_cliente"),
                             rs.getString("nombre_cliente"),
                             rs.getString("descripcion_trabajo"),
-                            rs.getBigDecimal("monto_estimado"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("monto_estimado")),
                             rs.getString("fecha_emision"),
                             rs.getString("fecha_limite")
                     ));
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando presupuesto por DNI", e);
         }
         return lista;
     }

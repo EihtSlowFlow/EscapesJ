@@ -40,7 +40,7 @@ public class VentanaMenu extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Menú Principal");
-        setSize(550, 800);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
@@ -67,8 +67,8 @@ public class VentanaMenu extends JFrame {
         JButton btnServ = crearBotonMenu("Gestionar Servicios (Historial)", new Color(46, 204, 113));
         JButton btnConfig = crearBotonMenu("⚙  Configuración", new Color(149, 165, 166));
 
-        btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo).setVisible(true));
-        btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo).setVisible(true));
+        btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo, configRepo).setVisible(true));
+        btnPresupuesto.addActionListener(e -> new VentanaPresupuesto(afip, presupuestoRepo, prodRepo, configRepo).setVisible(true));
         btnInv.addActionListener(e -> new VentanaGestionInventario(prodRepo).setVisible(true));
         btnServ.addActionListener(e -> new VentanaGestionServicios(servRepo, boletaRepo).setVisible(true));
         btnConfig.addActionListener(e -> new VentanaConfiguracion(configRepo, usuarioRepo).setVisible(true));
@@ -78,13 +78,24 @@ public class VentanaMenu extends JFrame {
         pnlBotones.add(btnInv);
         pnlBotones.add(btnServ);
         pnlBotones.add(btnConfig);
-
         gbc.gridy = 1;
         gbc.weighty = 0.0;
         gbc.fill = GridBagConstraints.NONE;
         gbc.insets = new Insets(0, 0, 40, 0);
         gbc.anchor = GridBagConstraints.PAGE_END;
         add(pnlBotones, gbc);
+
+        // Controles de zoom
+        JPanel pnlZoom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        pnlZoom.setOpaque(false);
+        pnlZoom.add(new io.github.ramiro.escapesj.vista.ZoomControls());
+
+        gbc.gridy = 2;
+        gbc.weighty = 0.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        gbc.anchor = GridBagConstraints.SOUTHEAST;
+        add(pnlZoom, gbc);
     }
 
     private JButton crearBotonMenu(String texto, Color color) {

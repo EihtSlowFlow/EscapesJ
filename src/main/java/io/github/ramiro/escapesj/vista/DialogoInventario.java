@@ -62,6 +62,7 @@ public class DialogoInventario extends JDialog {
         btnConfirmar.setForeground(Color.WHITE);
         btnConfirmar.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnConfirmar.setPreferredSize(new Dimension(0, 50));
+        ZoomManager.scaleExplicitSize(btnConfirmar);
         btnConfirmar.addActionListener(e -> confirmarSeleccion());
 
         add(btnConfirmar, BorderLayout.SOUTH);
@@ -69,23 +70,31 @@ public class DialogoInventario extends JDialog {
 
     private void cargarDatos() {
         model.setRowCount(0);
-        // Traemos todos los productos y agregamos el stock a la fila
-        repository.buscarTodos().forEach(p -> {
-            model.addRow(new Object[]{
-                    p.getCodigo(),
-                    p.getNombre(),
-                    p.getPrecio(),
-                    p.getStock() // Mostramos el stock actual en tiempo real
+        try {
+            // Traemos todos los productos y agregamos el stock a la fila
+            repository.buscarTodos().forEach(p -> {
+                model.addRow(new Object[]{
+                        p.getCodigo(),
+                        p.getNombre(),
+                        p.getPrecio(),
+                        p.getStock() // Mostramos el stock actual en tiempo real
+                });
             });
-        });
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar inventario", ex);
+        }
     }
 
     private void confirmarSeleccion() {
         int fila = tabla.getSelectedRow();
         if (fila != -1) {
             String codigo = model.getValueAt(fila, 0).toString();
-            repository.buscarPorCodigo(codigo).ifPresent(alSeleccionar);
-            dispose();
+            try {
+                repository.buscarPorCodigo(codigo).ifPresent(alSeleccionar);
+                dispose();
+            } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+                ErrorHandler.mostrarErrorPersistencia(this, "seleccionar producto", ex);
+            }
         } else {
             JOptionPane.showMessageDialog(this, "Debe seleccionar un producto.");
         }
@@ -95,6 +104,7 @@ public class DialogoInventario extends JDialog {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setSelectionBackground(new Color(52, 152, 219));
         t.getTableHeader().setBackground(new Color(30, 35, 48));
         t.getTableHeader().setForeground(Color.WHITE);

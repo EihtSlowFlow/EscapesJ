@@ -1,15 +1,21 @@
 package io.github.ramiro.escapesj.main;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.persistencia.*;
 import io.github.ramiro.escapesj.sdk.AfipService;
 import io.github.ramiro.escapesj.vista.VentanaLogin;
+import io.github.ramiro.escapesj.vista.VentanaSetupInicial;
 
 import javax.swing.*;
 import java.awt.*;
 import java.sql.Connection;
 
 public class Principal {
+    private static final Logger logger = LoggerFactory.getLogger(Principal.class);
+
 
     public static void main(String[] args) {
 
@@ -29,11 +35,19 @@ public class Principal {
 
             AfipService afipService = new AfipService(configRepo, cacheRepo);
 
-            SwingUtilities.invokeLater(() -> {
+            io.github.ramiro.escapesj.vista.ZoomManager.inicializar(configRepo);
 
-                VentanaLogin login = new VentanaLogin(afipService, inventario, productoRepo, servicioRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo);
-                login.setVisible(true);
-            });
+            if (usuarioRepo.isUsuariosEmpty()) {
+                SwingUtilities.invokeLater(() -> {
+                    VentanaSetupInicial setup = new VentanaSetupInicial(usuarioRepo);
+                    setup.setVisible(true);
+                });
+            } else {
+                SwingUtilities.invokeLater(() -> {
+                    VentanaLogin login = new VentanaLogin(afipService, inventario, productoRepo, servicioRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo);
+                    login.setVisible(true);
+                });
+            }
 
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null,
@@ -60,7 +74,7 @@ public class Principal {
 
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
         }
     }
 }

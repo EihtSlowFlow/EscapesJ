@@ -1,15 +1,20 @@
 package io.github.ramiro.escapesj.vista;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
 import io.github.ramiro.escapesj.modelo.Inventario;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
 import io.github.ramiro.escapesj.modelo.ServicioRealizado;
+import io.github.ramiro.escapesj.modelo.Emisor;
 import io.github.ramiro.escapesj.persistencia.BoletaRepository;
+import io.github.ramiro.escapesj.persistencia.ConfigRepository;
+import io.github.ramiro.escapesj.persistencia.EmisorRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
 import io.github.ramiro.escapesj.servicio.BoletaPdfService;
-
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -24,12 +29,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VentanaPrincipal extends JFrame {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VentanaPrincipal.class);
+
     private final AfipService afipService;
     private final Inventario inventario;
     private final ProductoRepository productoRepository;
     private final ServicioRepository servicioRepository;
     private final BoletaRepository boletaRepository;
-    private final io.github.ramiro.escapesj.servicio.FacturacionService facturacionService;
+    private final ConfigRepository configRepository;
 
     private DefaultTableModel modeloTabla;
     private JTextField txtDni, txtNombre, txtCodProducto, txtCantidad, txtDescripcion, txtMonto, txtDescuento;
@@ -49,19 +56,20 @@ public class VentanaPrincipal extends JFrame {
                              int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     public VentanaPrincipal(AfipService afip, Inventario inv, ProductoRepository prodRepo,
-                            ServicioRepository servRepo, BoletaRepository boletaRepo) {
+                            ServicioRepository servRepo, BoletaRepository boletaRepo,
+                            ConfigRepository configRepo) {
         this.afipService = afip;
         this.inventario = inv;
         this.productoRepository = prodRepo;
         this.servicioRepository = servRepo;
         this.boletaRepository = boletaRepo;
-        this.facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepo, prodRepo, servRepo);
+        this.configRepository = configRepo;
         initUI();
     }
 
     private void initUI() {
         setTitle("EscapesJ - Formulario de Servicio");
-        setSize(780, 750);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -124,6 +132,7 @@ public class VentanaPrincipal extends JFrame {
         btnBuscarDni.setFocusPainted(false);
         btnBuscarDni.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuscarDni.setPreferredSize(new Dimension(90, 30));
+        ZoomManager.scaleExplicitSize(btnBuscarDni);
         btnBuscarDni.setBorder(BorderFactory.createLineBorder(new Color(52, 152, 219).brighter(), 1));
         filaDni.add(btnBuscarDni, gbc);
 
@@ -206,6 +215,7 @@ public class VentanaPrincipal extends JFrame {
         btnBuscarProd.setFocusPainted(false);
         btnBuscarProd.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuscarProd.setPreferredSize(new Dimension(90, 30));
+        ZoomManager.scaleExplicitSize(btnBuscarProd);
         btnBuscarProd.setBorder(BorderFactory.createLineBorder(new Color(46, 125, 50).brighter(), 1));
         filaProd.add(btnBuscarProd, gbc);
 
@@ -274,6 +284,7 @@ public class VentanaPrincipal extends JFrame {
         btnAgregar.setFocusPainted(false);
         btnAgregar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAgregar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        ZoomManager.scaleExplicitSize(btnAgregar);
         btnAgregar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnAgregar.setBorder(BorderFactory.createLineBorder(new Color(231, 76, 60).brighter(), 1));
         formPanel.add(btnAgregar);
@@ -320,6 +331,31 @@ public class VentanaPrincipal extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         bottomPanel.add(scroll, BorderLayout.CENTER);
 
+        // Panel inferior que contendrá la selección de emisor y el botón finalizar
+        JPanel pnlInferiorOpciones = new JPanel(new BorderLayout(10, 10));
+        pnlInferiorOpciones.setBackground(new Color(30, 39, 46));
+        pnlInferiorOpciones.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JPanel pnlEmisor = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlEmisor.setBackground(new Color(30, 39, 46));
+        pnlEmisor.add(new JLabel("<html><font color='white'>Emisor:</font></html>"));
+        comboEmisores = new JComboBox<>();
+        cargarEmisores();
+        pnlEmisor.add(comboEmisores);
+
+        JButton btnAgregarEmisor = new JButton("➕");
+        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        btnAgregarEmisor.addActionListener(e -> {
+            DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
+                cargarEmisores();
+                comboEmisores.setSelectedItem(nuevo);
+            });
+            diag.setVisible(true);
+        });
+        pnlEmisor.add(btnAgregarEmisor);
+
+        pnlInferiorOpciones.add(pnlEmisor, BorderLayout.NORTH);
+
         // Botón Finalizar Boleta
         JButton btnFinalizar = new JButton("🧾  Finalizar y Generar Boleta");
         btnFinalizar.setBackground(new Color(46, 204, 113));
@@ -328,8 +364,11 @@ public class VentanaPrincipal extends JFrame {
         btnFinalizar.setFocusPainted(false);
         btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnFinalizar.setPreferredSize(new Dimension(0, 45));
+        ZoomManager.scaleExplicitSize(btnFinalizar);
         btnFinalizar.setBorder(BorderFactory.createLineBorder(new Color(46, 204, 113).brighter(), 1));
-        bottomPanel.add(btnFinalizar, BorderLayout.SOUTH);
+        
+        pnlInferiorOpciones.add(btnFinalizar, BorderLayout.CENTER);
+        bottomPanel.add(pnlInferiorOpciones, BorderLayout.SOUTH);
 
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
         add(mainPanel);
@@ -361,22 +400,24 @@ public class VentanaPrincipal extends JFrame {
             public void changedUpdate(DocumentEvent e) { resetearNombreSiCambio(); }
         });
 
-        // Auto-lookup al salir del campo DNI: si ya está en cache, mostrar nombre al instante
-        // Usa buscarSoloEnCache (solo SQLite local, SIN llamadas HTTP a AFIP)
+        // Auto-lookup al salir del campo DNI, sin bloquear el EDT con SQLite.
         txtDni.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
                 String dni = txtDni.getText().trim();
                 if (dni.matches("\\d{7,8}") && esTextoDeEstado(txtNombre.getText())) {
-                    afipService.buscarSoloEnCache(dni).ifPresent(cliente -> {
-                        cliente.presentarseEn(new ClienteRepresentador() {
-                            public void definirDni(String d) {} // No tocar el DNI
-                            public void definirNombre(String nombre) {
-                                txtNombre.setText(nombre);
-                                txtNombre.setForeground(Color.WHITE);
-                            }
-                        });
-                    });
+                    afipService.buscarSoloEnCacheAsync(dni)
+                            .thenAcceptAsync(resultado -> resultado.ifPresent(cliente ->
+                                    cliente.presentarseEn(new ClienteRepresentador() {
+                                        public void definirDni(String d) {} // No tocar el DNI
+                                        public void definirNombre(String nombre) {
+                                            // No pisar una edición o búsqueda iniciada tras perder el foco.
+                                            if (dni.equals(txtDni.getText().trim()) && esTextoDeEstado(txtNombre.getText())) {
+                                                txtNombre.setText(nombre);
+                                                txtNombre.setForeground(Color.WHITE);
+                                            }
+                                        }
+                                    })), SwingUtilities::invokeLater);
                 }
             }
         });
@@ -393,7 +434,7 @@ public class VentanaPrincipal extends JFrame {
                     afipService.guardarEnCacheManual(dni, nombre);
                     txtNombre.setEditable(false);
                     txtNombre.setBackground(new Color(30, 35, 48));
-                    System.out.println("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
+                    logger.info("Cache local: Guardado manual — DNI " + dni + " → " + nombre);
                 }
             }
         });
@@ -425,6 +466,23 @@ public class VentanaPrincipal extends JFrame {
     /**
      * Verifica si un texto es un placeholder o mensaje de estado (no un nombre real).
      */
+    private JComboBox<Emisor> comboEmisores;
+    private final EmisorRepository emisorRepo = new EmisorRepository();
+
+    private void cargarEmisores() {
+        comboEmisores.removeAllItems();
+        try {
+            for (Emisor e : emisorRepo.listarTodos()) {
+                comboEmisores.addItem(e);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar emisores", ex);
+        }
+        if (comboEmisores.getItemCount() > 0) {
+            comboEmisores.setSelectedIndex(0);
+        }
+    }
+
     private boolean esTextoDeEstado(String texto) {
         return texto == null || texto.isEmpty()
                 || texto.equals(PLACEHOLDER_NOMBRE)
@@ -465,51 +523,61 @@ public class VentanaPrincipal extends JFrame {
         txtNombre.setText("Buscando...");
         txtNombre.setEditable(false);
 
-        // Búsqueda asíncrona
-        new SwingWorker<String, Void>() {
-            @Override
-            protected String doInBackground() {
-                var resultado = afipService.buscarClientePorDni(dniIngresado);
+        // Búsqueda asíncrona usando CompletableFuture
+        afipService.buscarClientePorDniAsync(dniIngresado)
+            .thenAcceptAsync(resultado -> {
+                btnBuscar.setEnabled(true);
                 if (resultado.isPresent()) {
                     final String[] nombre = {null};
                     resultado.get().presentarseEn(new ClienteRepresentador() {
-                        public void definirDni(String cuit) {} // No tocar DNI
+                        public void definirDni(String cuit) {}
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    return nombre[0];
-                }
-                return null;
-            }
 
-            @Override
-            protected void done() {
-                btnBuscar.setEnabled(true);
-                try {
-                    String nombre = get();
-                    if (nombre != null && !nombre.isBlank()) {
+                    if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dniIngresado);
-                        txtNombre.setText(nombre);
+                        txtNombre.setText(nombre[0]);
                         txtNombre.setForeground(Color.WHITE);
                         txtNombre.setEditable(false);
                         txtNombre.setBackground(new Color(30, 35, 48));
                         txtDescripcion.requestFocus();
-                    } else {
-                        txtDni.setText(dniIngresado);
+                        return;
+                    }
+                }
+
+                txtDni.setText(dniIngresado);
+                txtNombre.setText("");
+                txtNombre.setForeground(Color.WHITE);
+                txtNombre.setEditable(true);
+                txtNombre.setFocusable(true);
+                txtNombre.setBackground(new Color(60, 60, 80));
+                txtNombre.requestFocus();
+                txtNombre.setToolTipText("Ingresá el nombre del cliente manualmente");
+            }, SwingUtilities::invokeLater)
+            .exceptionally(ex -> {
+                Throwable cause = ex;
+                while (cause instanceof java.util.concurrent.CompletionException || cause instanceof java.util.concurrent.ExecutionException) {
+                    cause = cause.getCause();
+                }
+                if (cause instanceof io.github.ramiro.escapesj.persistencia.PersistenceException pEx) {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
                         txtNombre.setText("");
                         txtNombre.setForeground(Color.WHITE);
                         txtNombre.setEditable(true);
-                        txtNombre.setFocusable(true);
                         txtNombre.setBackground(new Color(60, 60, 80));
-                        txtNombre.requestFocus();
-                        txtNombre.setToolTipText("Ingresá el nombre del cliente manualmente");
-                    }
-                } catch (Exception ex) {
-                    txtDni.setText(dniIngresado);
-                    txtNombre.setText("Error al buscar");
-                    txtNombre.setForeground(new Color(255, 100, 100));
+                        ErrorHandler.mostrarErrorPersistencia(VentanaPrincipal.this, "buscar cliente", pEx);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtDni.setText(dniIngresado);
+                        txtNombre.setText("Error al buscar");
+                        txtNombre.setForeground(new Color(255, 100, 100));
+                    });
                 }
-            }
-        }.execute();
+                return null;
+            });
     }
 
     private void abrirBuscador() {
@@ -593,6 +661,8 @@ public class VentanaPrincipal extends JFrame {
             }
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Ingrese una cantidad válida.");
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "procesar producto", ex);
         }
     }
 
@@ -614,51 +684,64 @@ public class VentanaPrincipal extends JFrame {
 
         // Leer método de pago y descuento
         String metodoPago = (String) cmbMetodoPago.getSelectedItem();
-        double descuentoPct = 0;
+        java.math.BigDecimal descuentoPct = java.math.BigDecimal.ZERO;
         if ("EFECTIVO".equals(metodoPago)) {
             try {
-                descuentoPct = Double.parseDouble(txtDescuento.getText().trim());
+                descuentoPct = new java.math.BigDecimal(txtDescuento.getText().trim());
             } catch (NumberFormatException ignored) {}
         }
 
+        // Las fechas se persisten en ISO para que el orden lexicográfico también sea cronológico.
+        // La conversión a dd/MM/yyyy se realiza únicamente en la UI y en el PDF.
         String fechaHoy = java.time.LocalDate.now().toString();
+        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
+        if (emisor == null) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         // Convert UI items to service DTO
         java.util.List<io.github.ramiro.escapesj.servicio.ItemFacturacion> itemsDto = itemsOrden.stream()
                 .map(item -> new io.github.ramiro.escapesj.servicio.ItemFacturacion(
                         item.tipo(), item.descripcion(), item.codigoProducto(), item.cantidad(), item.precioUnitario()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         io.github.ramiro.escapesj.servicio.FacturacionRequest request = new io.github.ramiro.escapesj.servicio.FacturacionRequest(
-                dni, nombre, fechaHoy, itemsDto, descuentoPct
+                dni, nombre, fechaHoy, itemsDto, metodoPago, descuentoPct
         );
 
         io.github.ramiro.escapesj.servicio.FacturacionResult resultadoFacturacion;
+        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
 
         try {
             resultadoFacturacion = facturacionService.facturarOrden(request);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "finalizar boleta", e);
+            return;
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                     "Error procesando la facturación. Los cambios fueron revertidos.\n" + e.getMessage(),
                     "Error en Transacción", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            logger.error("Error en facturación", e);
             return; // Detener flujo, no limpiar el formulario ni generar PDF
         }
 
-        double descuentoMonto = resultadoFacturacion.subtotal() * (descuentoPct / 100.0);
-        String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/boletas/";
-
+        String carpetaPdf = configRepository.getRutaBoletas();
         try {
-            String rutaPdf = BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
-                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf);
+            String rutaPdf = io.github.ramiro.escapesj.servicio.BoletaPdfService.generarPdf(resultadoFacturacion.numero(), fechaHoy, dni, nombre,
+                    resultadoFacturacion.items(), resultadoFacturacion.subtotal(), metodoPago, descuentoPct, carpetaPdf, emisor);
+
+            java.math.BigDecimal descuentoMonto = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(
+                    resultadoFacturacion.subtotal().multiply(descuentoPct).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP)
+            );
 
             String resumen = "✅ Boleta #" + resultadoFacturacion.numero() + " generada correctamente.\n\n"
-                    + "Subtotal: $" + String.format("%,.0f", resultadoFacturacion.subtotal()) + "\n";
-            if (descuentoMonto > 0) {
-                resumen += "Descuento (" + String.format("%.0f", descuentoPct) + "%): -$"
-                        + String.format("%,.0f", descuentoMonto) + "\n";
+                    + "Subtotal: $" + String.format("%,.2f", resultadoFacturacion.subtotal()) + "\n";
+            if (descuentoMonto.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                resumen += "Descuento (" + String.format("%,.2f", descuentoPct) + "%): -$"
+                        + String.format("%,.2f", descuentoMonto) + "\n";
             }
-            resumen += "Total: $" + String.format("%,.0f", resultadoFacturacion.totalFinal()) + "\n"
+            resumen += "Total: $" + String.format("%,.2f", resultadoFacturacion.totalFinal()) + "\n"
                     + "Método: " + metodoPago + "\n\n"
                     + "PDF guardado en:\n" + rutaPdf;
 
@@ -668,7 +751,7 @@ public class VentanaPrincipal extends JFrame {
             JOptionPane.showMessageDialog(this,
                     "Boleta guardada en DB pero hubo un error al generar el PDF:\n" + ex.getMessage(),
                     "Error PDF", JOptionPane.WARNING_MESSAGE);
-            ex.printStackTrace();
+            logger.error("Error:", ex);
         }
 
         // Limpiar todo el formulario solo después de que la factura se guardó exitosamente
@@ -772,6 +855,7 @@ public class VentanaPrincipal extends JFrame {
         t.setBackground(new Color(45, 52, 71));
         t.setForeground(Color.WHITE);
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setGridColor(new Color(70, 80, 105));
         t.setFont(new Font("SansSerif", Font.PLAIN, 13));
         t.getTableHeader().setBackground(new Color(30, 35, 48));

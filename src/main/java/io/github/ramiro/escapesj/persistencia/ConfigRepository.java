@@ -1,9 +1,21 @@
 package io.github.ramiro.escapesj.persistencia;
 
 import java.sql.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Optional;
 
 public class ConfigRepository {
+    private static final Logger logger = LoggerFactory.getLogger(ConfigRepository.class);
+
 
     public ConfigRepository() {
     }
@@ -22,24 +34,71 @@ public class ConfigRepository {
                 return (valor != null && !valor.isBlank()) ? Optional.of(valor) : Optional.empty();
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al obtener configuración", e);
         }
         return Optional.empty();
     }
 
     /**
-     * Guarda o actualiza un valor de configuración.
+     * Guarda o actualiza un valor de configuración (abre su propia conexión).
      */
     public void guardar(String clave, String valor) {
+        try (Connection connection = DatabaseService.getConnection()) {
+            guardar(connection, clave, valor);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al guardar la configuración: " + clave, e);
+        }
+    }
+
+    /**
+     * Elimina una configuración para que vuelva a utilizar su valor por defecto.
+     */
+    public void eliminar(String clave) {
+        try (Connection connection = DatabaseService.getConnection()) {
+            eliminar(connection, clave);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al eliminar la configuración: " + clave, e);
+        }
+    }
+
+    /**
+     * Guarda múltiples valores de forma atómica.
+     */
+    public void guardarMultiples(Map<String, String> configuraciones) {
+        try {
+            TransactionHelper.runInTransaction(connection -> {
+                for (Map.Entry<String, String> entry : configuraciones.entrySet()) {
+                    guardar(connection, entry.getKey(), entry.getValue());
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error guardando configuraciones múltiples", e);
+        }
+    }
+
+    private void guardar(Connection connection, String clave, String valor) throws SQLException {
+        if ("afip.access_token".equals(clave)) {
+            valor = io.github.ramiro.escapesj.sdk.CryptoUtil.encrypt(valor);
+        }
+
         String sql = "INSERT INTO configuracion (clave, valor) VALUES (?, ?) " +
                 "ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor";
-        try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, clave);
             ps.setString(2, valor);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
+        }
+    }
+
+    private void eliminar(Connection connection, String clave) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM configuracion WHERE clave = ?")) {
+            ps.setString(1, clave);
+            ps.executeUpdate();
         }
     }
 
@@ -47,7 +106,9 @@ public class ConfigRepository {
      * Obtiene el Access Token de Afip SDK configurado.
      */
     public String getAfipAccessToken() {
-        return obtener("afip.access_token").orElse("");
+        return obtener("afip.access_token")
+                .map(io.github.ramiro.escapesj.sdk.CryptoUtil::decrypt)
+                .orElse("");
     }
 
     /**
@@ -76,5 +137,101 @@ public class ConfigRepository {
      */
     public String getAfipKeyPath() {
         return obtener("afip.key_path").orElse("");
+    }
+
+    public static String getDefaultDocumentsPath() {
+        File docs = javax.swing.filechooser.FileSystemView.getFileSystemView().getDefaultDirectory();
+        return resolverDefaultDocumentsPath(docs, System.getProperty("user.home"));
+    }
+
+    static String resolverDefaultDocumentsPath(File docs, String userHome) {
+        if (docs != null && docs.isDirectory()) {
+            return docs.getAbsolutePath();
+        }
+        return Paths.get(userHome, "Documents").toAbsolutePath().normalize().toString();
+    }
+
+    public static String getDefaultBoletasPath() {
+        return getDefaultDocumentsPath() + java.io.File.separator + "escapesJ" + java.io.File.separator + "boletas" + java.io.File.separator;
+    }
+
+    public static String getDefaultPresupuestosPath() {
+        return getDefaultDocumentsPath() + java.io.File.separator + "escapesJ" + java.io.File.separator + "presupuestos" + java.io.File.separator;
+    }
+
+    /**
+     * Guarda ambas rutas de forma atómica. Las rutas por defecto eliminan cualquier
+     * override; las personalizadas se normalizan y deben ser directorios utilizables.
+     */
+    public void guardarRutas(String rutaBoletas, String rutaPresupuestos) {
+        String boletas = normalizarDirectorio(rutaBoletas, getDefaultBoletasPath(), "boletas");
+        String presupuestos = normalizarDirectorio(rutaPresupuestos, getDefaultPresupuestosPath(), "presupuestos");
+
+        try {
+            TransactionHelper.runInTransaction(connection -> {
+                guardarOEliminarRuta(connection, "ruta.boletas", boletas);
+                guardarOEliminarRuta(connection, "ruta.presupuestos", presupuestos);
+                return null;
+            });
+        } catch (Exception e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error guardando las rutas", e);
+        }
+    }
+
+    private void guardarOEliminarRuta(Connection connection, String clave, String valor) throws SQLException {
+        if (valor == null) {
+            eliminar(connection, clave);
+        } else {
+            guardar(connection, clave, valor);
+        }
+    }
+
+    private static String normalizarDirectorio(String ruta, String rutaDefault, String descripcion) {
+        String valor = ruta == null ? "" : ruta.trim();
+
+        try {
+            Path defaultPath = Paths.get(rutaDefault).toAbsolutePath().normalize();
+            if (valor.isEmpty()) {
+                return null;
+            }
+
+            Path path = Paths.get(valor);
+            if (!path.isAbsolute()) {
+                throw new IllegalArgumentException("La ruta de " + descripcion + " debe ser absoluta.");
+            }
+            path = path.normalize();
+            if (path.equals(defaultPath)) {
+                return null;
+            }
+            if (Files.exists(path) && !Files.isDirectory(path)) {
+                throw new IllegalArgumentException("La ruta de " + descripcion + " apunta a un archivo.");
+            }
+            Files.createDirectories(path);
+            if (!Files.isWritable(path)) {
+                throw new IllegalArgumentException("La carpeta de " + descripcion + " no tiene permisos de escritura.");
+            }
+            return path.toString();
+        } catch (InvalidPathException e) {
+            throw new IllegalArgumentException("La ruta de " + descripcion + " no es válida.", e);
+        } catch (IOException | SecurityException e) {
+            throw new IllegalArgumentException("No se puede crear o usar la carpeta de " + descripcion + ".", e);
+        }
+    }
+
+    /**
+     * Obtiene la ruta donde se guardarán las boletas.
+     * Fallback: carpeta Documentos del usuario.
+     */
+    public String getRutaBoletas() {
+        return obtener("ruta.boletas").orElse(getDefaultBoletasPath());
+    }
+
+    /**
+     * Obtiene la ruta donde se guardarán los presupuestos.
+     * Fallback: carpeta Documentos del usuario.
+     */
+    public String getRutaPresupuestos() {
+        return obtener("ruta.presupuestos").orElse(getDefaultPresupuestosPath());
     }
 }

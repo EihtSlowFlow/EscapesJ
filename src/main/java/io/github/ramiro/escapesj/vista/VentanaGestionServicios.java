@@ -26,7 +26,7 @@ public class VentanaGestionServicios extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Historial de Servicios");
-        setSize(900, 650);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         getContentPane().setBackground(new Color(0, 43, 91));
         setLayout(new BorderLayout(10, 10));
@@ -161,39 +161,43 @@ public class VentanaGestionServicios extends JFrame {
         modelItems.setRowCount(0);
         lblItems.setText("  DETALLE DE BOLETA (doble click en una boleta)");
 
-        var boletas = boletaRepo.buscarBoletasPorDni(dniBusqueda);
-        for (var b : boletas) {
-            modelBoletas.addRow(new Object[]{
-                    b.id(), // Guardamos el ID en la primera columna (se muestra como Nro.)
-                    b.fecha(),
-                    b.nombreCliente(),
-                    "$" + String.format("%,.0f", b.total())
-            });
-        }
-
-        // Renombrar primera columna para mostrar el número real
-        if (!boletas.isEmpty()) {
-            // Recargar con el número de boleta real
-            modelBoletas.setRowCount(0);
+        try {
+            var boletas = boletaRepo.buscarBoletasPorDni(dniBusqueda);
             for (var b : boletas) {
                 modelBoletas.addRow(new Object[]{
-                        b.numero(),
-                        b.fecha(),
+                        b.id(), // Guardamos el ID en la primera columna (se muestra como Nro.)
+                        io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(b.fecha()),
                         b.nombreCliente(),
                         "$" + String.format("%,.0f", b.total())
                 });
             }
-        }
 
-        if (modelBoletas.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this, "No se encontraron boletas para el DNI: " + dniBusqueda);
-        }
+            // Renombrar primera columna para mostrar el número real
+            if (!boletas.isEmpty()) {
+                // Recargar con el número de boleta real
+                modelBoletas.setRowCount(0);
+                for (var b : boletas) {
+                    modelBoletas.addRow(new Object[]{
+                            b.numero(),
+                            io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(b.fecha()),
+                            b.nombreCliente(),
+                            "$" + String.format("%,.0f", b.total())
+                    });
+                }
+            }
 
-        // Guardar IDs por separado para el doble click
-        // Usamos un truco: guardamos la lista de boletas como client property
-        var tablaBoletas = getTablaBoletasDesdeUI();
-        if (tablaBoletas != null) {
-            tablaBoletas.putClientProperty("boletasList", boletas);
+            if (modelBoletas.getRowCount() == 0) {
+                JOptionPane.showMessageDialog(this, "No se encontraron boletas para el DNI: " + dniBusqueda);
+            }
+
+            // Guardar IDs por separado para el doble click
+            // Usamos un truco: guardamos la lista de boletas como client property
+            var tablaBoletas = getTablaBoletasDesdeUI();
+            if (tablaBoletas != null) {
+                tablaBoletas.putClientProperty("boletasList", boletas);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "buscar historial", ex);
         }
     }
 
@@ -216,16 +220,20 @@ public class VentanaGestionServicios extends JFrame {
         modelItems.setRowCount(0);
         lblItems.setText("  DETALLE DE BOLETA #" + numero);
 
-        var items = boletaRepo.obtenerItems(boletaId);
-        for (var item : items) {
-            modelItems.addRow(new Object[]{
-                    item.tipo(),
-                    item.descripcion(),
-                    item.codigoProducto() != null ? item.codigoProducto() : "—",
-                    item.cantidad(),
-                    "$" + String.format("%,.0f", item.precioUnitario()),
-                    "$" + String.format("%,.0f", item.subtotal())
-            });
+        try {
+            var items = boletaRepo.obtenerItems(boletaId);
+            for (var item : items) {
+                modelItems.addRow(new Object[]{
+                        item.tipo(),
+                        item.descripcion(),
+                        item.codigoProducto() != null ? item.codigoProducto() : "—",
+                        item.cantidad(),
+                        "$" + String.format("%,.0f", item.precioUnitario()),
+                        "$" + String.format("%,.0f", item.subtotal())
+                });
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar detalle de boleta", ex);
         }
     }
 
@@ -255,6 +263,7 @@ public class VentanaGestionServicios extends JFrame {
         t.setForeground(Color.WHITE);
         t.setGridColor(new Color(70, 80, 105));
         t.setRowHeight(30);
+        ZoomManager.registerBaseRowHeight(t, 30);
         t.setFont(new Font("SansSerif", Font.PLAIN, 14));
         t.setSelectionBackground(new Color(52, 152, 219));
         t.getTableHeader().setBackground(new Color(30, 35, 48));

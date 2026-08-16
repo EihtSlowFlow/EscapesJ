@@ -12,3 +12,6 @@ config.properties
 afip-cert/
 boletas/
 presupuestos/
+escapesj.log
+*.tar.gz
+.agents

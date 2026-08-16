@@ -2,7 +2,9 @@ package io.github.ramiro.escapesj.vista;
 
 import com.toedter.calendar.JDateChooser;
 import io.github.ramiro.escapesj.modelo.ClienteRepresentador;
+import io.github.ramiro.escapesj.modelo.Emisor;
 import io.github.ramiro.escapesj.modelo.ProductoRepresentador;
+import io.github.ramiro.escapesj.persistencia.EmisorRepository;
 import io.github.ramiro.escapesj.persistencia.PresupuestoRepository;
 import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.sdk.AfipService;
@@ -31,11 +33,14 @@ public class VentanaPresupuesto extends JFrame {
     private final AfipService afipService;
     private final PresupuestoRepository presupuestoRepo;
     private final ProductoRepository productoRepo;
+    private final io.github.ramiro.escapesj.persistencia.ConfigRepository configRepository;
+    private final EmisorRepository emisorRepo = new EmisorRepository();
 
     private JTextField txtDni, txtNombre, txtDescripcion, txtMonto, txtCodProducto, txtCantidad;
     private JDateChooser dateChooserLimite;
     private JLabel lblProductoInfo;
     private DefaultTableModel modeloTabla;
+    private JComboBox<Emisor> comboEmisores;
     private static final String PLACEHOLDER_NOMBRE = "Se completa automáticamente";
 
     // Ítems acumulados
@@ -46,16 +51,18 @@ public class VentanaPresupuesto extends JFrame {
     private BigDecimal precioProductoSel = BigDecimal.ZERO;
 
     public VentanaPresupuesto(AfipService afipService, PresupuestoRepository presupuestoRepo,
-                               ProductoRepository productoRepo) {
+                               ProductoRepository productoRepo,
+                               io.github.ramiro.escapesj.persistencia.ConfigRepository configRepo) {
         this.afipService = afipService;
         this.presupuestoRepo = presupuestoRepo;
         this.productoRepo = productoRepo;
+        this.configRepository = configRepo;
         initUI();
     }
 
     private void initUI() {
         setTitle("EscapesJ - Generar Presupuesto");
-        setSize(780, 720);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -201,6 +208,7 @@ public class VentanaPresupuesto extends JFrame {
         btnAgregar.setFocusPainted(false);
         btnAgregar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAgregar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        ZoomManager.scaleExplicitSize(btnAgregar);
         btnAgregar.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnAgregar.setBorder(BorderFactory.createLineBorder(new Color(231, 76, 60).brighter(), 1));
         formPanel.add(btnAgregar);
@@ -284,7 +292,29 @@ public class VentanaPresupuesto extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         bottomPanel.add(scroll, BorderLayout.CENTER);
 
-        // Botones: Verificar + Generar
+        // Botones: Emisor + Verificar + Generar
+        JPanel pnlOpcionesInf = new JPanel(new BorderLayout());
+        pnlOpcionesInf.setBackground(new Color(45, 52, 71));
+
+        JPanel pnlEmisor = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlEmisor.setBackground(new Color(45, 52, 71));
+        pnlEmisor.add(new JLabel("<html><font color='white'>Emisor:</font></html>"));
+        comboEmisores = new JComboBox<>();
+        cargarEmisores();
+        pnlEmisor.add(comboEmisores);
+
+        JButton btnAgregarEmisor = new JButton("➕");
+        btnAgregarEmisor.setToolTipText("Añadir nuevo emisor");
+        btnAgregarEmisor.addActionListener(e -> {
+            DialogoAgregarEmisor diag = new DialogoAgregarEmisor(this, emisorRepo, nuevo -> {
+                cargarEmisores();
+                comboEmisores.setSelectedItem(nuevo);
+            });
+            diag.setVisible(true);
+        });
+        pnlEmisor.add(btnAgregarEmisor);
+        pnlOpcionesInf.add(pnlEmisor, BorderLayout.NORTH);
+
         JPanel pnlBotones = new JPanel(new GridLayout(1, 2, 8, 0));
         pnlBotones.setOpaque(false);
         pnlBotones.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
@@ -305,10 +335,12 @@ public class VentanaPresupuesto extends JFrame {
         btnGenerar.setFocusPainted(false);
         btnGenerar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnGenerar.setPreferredSize(new Dimension(0, 42));
+        ZoomManager.scaleExplicitSize(btnGenerar);
         btnGenerar.setBorder(BorderFactory.createLineBorder(new Color(155, 89, 182).brighter(), 1));
         pnlBotones.add(btnGenerar);
 
-        bottomPanel.add(pnlBotones, BorderLayout.SOUTH);
+        pnlOpcionesInf.add(pnlBotones, BorderLayout.CENTER);
+        bottomPanel.add(pnlOpcionesInf, BorderLayout.SOUTH);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
         setContentPane(mainPanel);
@@ -342,6 +374,20 @@ public class VentanaPresupuesto extends JFrame {
     //  LÓGICA
     // ════════════════════════════════════════
 
+    private void cargarEmisores() {
+        comboEmisores.removeAllItems();
+        try {
+            for (Emisor e : emisorRepo.listarTodos()) {
+                comboEmisores.addItem(e);
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "cargar emisores", ex);
+        }
+        if (comboEmisores.getItemCount() > 0) {
+            comboEmisores.setSelectedIndex(0);
+        }
+    }
+
     private void buscarCliente(JButton btnBuscar) {
         String dni = txtDni.getText().trim();
         if (dni.isEmpty() || dni.startsWith("Ej:")) {
@@ -364,47 +410,57 @@ public class VentanaPresupuesto extends JFrame {
         txtNombre.setForeground(new Color(150, 150, 150));
         txtNombre.setText("Buscando...");
 
-        new SwingWorker<String, Void>() {
-            @Override
-            protected String doInBackground() {
-                var resultado = afipService.buscarClientePorDni(dni);
+        afipService.buscarClientePorDniAsync(dni)
+            .thenAcceptAsync(resultado -> {
+                btnBuscar.setEnabled(true);
                 if (resultado.isPresent()) {
                     final String[] nombre = {null};
                     resultado.get().presentarseEn(new ClienteRepresentador() {
                         public void definirDni(String cuit) {}
                         public void definirNombre(String n) { nombre[0] = n; }
                     });
-                    return nombre[0];
-                }
-                return null;
-            }
 
-            @Override
-            protected void done() {
-                btnBuscar.setEnabled(true);
-                try {
-                    String nombre = get();
-                    if (nombre != null && !nombre.isBlank()) {
+                    if (nombre[0] != null && !nombre[0].isBlank()) {
                         txtDni.setText(dni);
-                        txtNombre.setText(nombre);
+                        txtNombre.setText(nombre[0]);
                         txtNombre.setForeground(Color.WHITE);
                         txtDescripcion.requestFocus();
-                    } else {
-                        txtDni.setText(dni);
+                        return;
+                    }
+                }
+
+                txtDni.setText(dni);
+                txtNombre.setText("");
+                txtNombre.setForeground(Color.WHITE);
+                txtNombre.setEditable(true);
+                txtNombre.setFocusable(true);
+                txtNombre.setBackground(new Color(60, 60, 80));
+                txtNombre.requestFocus();
+            }, SwingUtilities::invokeLater)
+            .exceptionally(ex -> {
+                Throwable cause = ex;
+                while (cause instanceof java.util.concurrent.CompletionException || cause instanceof java.util.concurrent.ExecutionException) {
+                    cause = cause.getCause();
+                }
+                if (cause instanceof io.github.ramiro.escapesj.persistencia.PersistenceException pEx) {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
                         txtNombre.setText("");
                         txtNombre.setForeground(Color.WHITE);
                         txtNombre.setEditable(true);
-                        txtNombre.setFocusable(true);
                         txtNombre.setBackground(new Color(60, 60, 80));
-                        txtNombre.requestFocus();
-                    }
-                } catch (Exception ex) {
-                    txtDni.setText(dni);
-                    txtNombre.setText("Error al buscar");
-                    txtNombre.setForeground(new Color(255, 100, 100));
+                        ErrorHandler.mostrarErrorPersistencia(VentanaPresupuesto.this, "buscar cliente", pEx);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        btnBuscar.setEnabled(true);
+                        txtDni.setText(dni);
+                        txtNombre.setText("Error al buscar");
+                        txtNombre.setForeground(new Color(255, 100, 100));
+                    });
                 }
-            }
-        }.execute();
+                return null;
+            });
     }
 
     private void abrirBuscadorProducto() {
@@ -512,19 +568,31 @@ public class VentanaPresupuesto extends JFrame {
         String fechaHoy = LocalDate.now().toString();
         String fechaLimiteISO = fechaLimite.toString();
 
-        String codigo = presupuestoRepo.crearPresupuesto(
-                dni, nombre, descBd.toString(), totalEstimado, fechaHoy, fechaLimiteISO);
+        Emisor emisor = (Emisor) comboEmisores.getSelectedItem();
+        if (emisor == null) {
+            JOptionPane.showMessageDialog(this, "Debe seleccionar un emisor. Puede agregarlo usando el botón '+'.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String codigo;
+        try {
+            codigo = presupuestoRepo.crearPresupuesto(
+                    dni, nombre, descBd.toString(), totalEstimado, fechaHoy, fechaLimiteISO);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "generar presupuesto", e);
+            return;
+        }
 
         if (codigo == null) {
             JOptionPane.showMessageDialog(this, "Error al guardar el presupuesto.");
             return;
         }
 
-        String carpetaPdf = System.getProperty("user.home") + "/Documentos/escapesJ/presupuestos/";
+        String carpetaPdf = configRepository.getRutaPresupuestos();
         try {
             String rutaPdf = PresupuestoPdfService.generarPdf(
                     codigo, fechaHoy, fechaLimiteISO,
-                    dni, nombre, itemsPresupuesto, totalEstimado, carpetaPdf);
+                    dni, nombre, itemsPresupuesto, totalEstimado, carpetaPdf, emisor);
 
             JOptionPane.showMessageDialog(this,
                     "✅ Presupuesto generado correctamente.\n\n"
@@ -543,7 +611,14 @@ public class VentanaPresupuesto extends JFrame {
     }
 
     private void verificarPresupuesto(String codigo) {
-        var p = presupuestoRepo.buscarPorCodigo(codigo.toUpperCase());
+        io.github.ramiro.escapesj.persistencia.PresupuestoRepository.Presupuesto p;
+        try {
+            p = presupuestoRepo.buscarPorCodigo(codigo.toUpperCase());
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "verificar presupuesto", e);
+            return;
+        }
+
         if (p == null) {
             JOptionPane.showMessageDialog(this,
                     "❌ No se encontró ningún presupuesto con código: " + codigo,
@@ -561,8 +636,8 @@ public class VentanaPresupuesto extends JFrame {
                 + "DNI: " + p.dniCliente() + "\n"
                 + "Trabajo: " + p.descripcionTrabajo() + "\n"
                 + "Monto: $" + String.format("%,.0f", p.montoEstimado()) + "\n\n"
-                + "Emitido: " + p.fechaEmision() + "\n"
-                + "Válido hasta: " + p.fechaLimite(),
+                + "Emitido: " + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(p.fechaEmision()) + "\n"
+                + "Válido hasta: " + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(p.fechaLimite()),
                 "Presupuesto Encontrado", JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -651,6 +726,7 @@ public class VentanaPresupuesto extends JFrame {
         b.setFocusPainted(false);
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
         b.setPreferredSize(new Dimension(ancho, 30));
+        ZoomManager.scaleExplicitSize(b);
         b.setBorder(BorderFactory.createLineBorder(color.brighter(), 1));
         return b;
     }
@@ -692,6 +768,7 @@ public class VentanaPresupuesto extends JFrame {
         tabla.getTableHeader().setForeground(Color.WHITE);
         tabla.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         tabla.setRowHeight(22);
+        ZoomManager.registerBaseRowHeight(tabla, 22);
     }
 
     private class PanelCabecera extends JPanel {

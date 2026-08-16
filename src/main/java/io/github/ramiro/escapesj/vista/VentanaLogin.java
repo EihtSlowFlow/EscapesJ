@@ -43,14 +43,12 @@ public class VentanaLogin extends JFrame {
 
     private void initUI() {
         setTitle("EscapesJ - Acceso");
-        setSize(450, 550);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        getContentPane().setBackground(new Color(0, 43, 91));
-        setLayout(new BorderLayout());
+        JPanel content = new JPanel(new BorderLayout());
+        content.setBackground(new Color(0, 43, 91));
 
         // 1. Logo arriba
-        add(new PanelCabecera(), BorderLayout.NORTH);
+        content.add(new PanelCabecera(), BorderLayout.NORTH);
 
         // 2. Formulario
         JPanel pnlForm = new JPanel(new GridBagLayout());
@@ -91,10 +89,29 @@ public class VentanaLogin extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
+        gbc.insets = new Insets(20, 10, 5, 10);
         pnlForm.add(btnIngresar, gbc);
 
-        add(pnlForm, BorderLayout.CENTER);
+        // Link "Olvidaste tu contraseña?"
+        JButton btnOlvide = new JButton("¿Olvidaste tu contraseña?");
+        btnOlvide.setContentAreaFilled(false);
+        btnOlvide.setBorderPainted(false);
+        btnOlvide.setForeground(new Color(150, 150, 150));
+        btnOlvide.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        btnOlvide.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnOlvide.addActionListener(e -> new VentanaRecuperacion(VentanaLogin.this, usuarioRepo).setVisible(true));
+
+        gbc.gridy = 3;
+        gbc.insets = new Insets(0, 10, 10, 10);
+        pnlForm.add(btnOlvide, gbc);
+
+        content.add(pnlForm, BorderLayout.CENTER);
+
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        setContentPane(scrollPane);
+        ZoomManager.packAndFitToScreen(this, 450, 550);
 
         // CONFIGURACIÓN DE UX
         this.getRootPane().setDefaultButton(btnIngresar); // Enter para entrar
@@ -120,11 +137,47 @@ public class VentanaLogin extends JFrame {
         String usuario = txtUsuario.getText().trim();
         String password = new String(txtPassword.getPassword());
 
-        if (usuarioRepo.validarCredenciales(usuario, password)) {
-            new VentanaMenu(afip, inv, prodRepo, servRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo).setVisible(true);
-            this.dispose();
-        } else {
-            JOptionPane.showMessageDialog(this, "Error de acceso: Credenciales inválidas.");
+        try {
+            if (usuarioRepo.validarCredenciales(usuario, password)) {
+                if (usuarioRepo.debeCambiarPassword(usuario)) {
+                    JOptionPane.showMessageDialog(this, "Por motivos de seguridad, debe cambiar su contraseña generada por defecto/migración.", "Cambio de Contraseña Obligatorio", JOptionPane.WARNING_MESSAGE);
+                    JPasswordField pf1 = new JPasswordField();
+                    JPasswordField pf2 = new JPasswordField();
+                    Object[] message = {
+                        "Nueva Contraseña:", pf1,
+                        "Confirmar Nueva Contraseña:", pf2
+                    };
+                    int option = JOptionPane.showConfirmDialog(this, message, "Cambio de Contraseña", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                    if (option == JOptionPane.OK_OPTION) {
+                        String p1 = new String(pf1.getPassword());
+                        String p2 = new String(pf2.getPassword());
+                        if (p1.isEmpty() || !p1.equals(p2)) {
+                            JOptionPane.showMessageDialog(this, "Las contraseñas no coinciden o están vacías. No se pudo iniciar sesión.");
+                            return; // Aborts login
+                        }
+                        if (p1.length() < 6) {
+                            JOptionPane.showMessageDialog(this, "La contraseña debe tener al menos 6 caracteres. No se pudo iniciar sesión.");
+                            return; // Aborts login
+                        }
+                        // Attempt to change
+                        if (usuarioRepo.cambiarPassword(usuario, password, p1)) {
+                            JOptionPane.showMessageDialog(this, "Contraseña actualizada con éxito.");
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Hubo un error al actualizar la contraseña.");
+                            return; // Aborts login
+                        }
+                    } else {
+                        return; // Aborts login if they hit cancel
+                    }
+                }
+
+                new VentanaMenu(afip, inv, prodRepo, servRepo, usuarioRepo, configRepo, boletaRepo, presupuestoRepo).setVisible(true);
+                this.dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Error de acceso: Credenciales inválidas.");
+            }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException e) {
+            ErrorHandler.mostrarErrorPersistencia(this, "iniciar sesión", e);
         }
     }
 

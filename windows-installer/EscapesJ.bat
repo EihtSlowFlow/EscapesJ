@@ -2,6 +2,12 @@
 title EscapesJ - Sistema de Gestion
 cd /d "%~dp0"
 
+REM Buscar JRE embebido primero
+if exist "runtime\bin\javaw.exe" (
+    start "" "runtime\bin\javaw.exe" -jar EscapesJ.jar
+    exit
+)
+
 REM Buscar Java en el PATH del sistema
 where java >nul 2>&1
 if %ERRORLEVEL% equ 0 (

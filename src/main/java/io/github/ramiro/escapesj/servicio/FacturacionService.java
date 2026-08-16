@@ -21,11 +21,13 @@ public class FacturacionService {
     }
 
     public FacturacionResult facturarOrden(FacturacionRequest request) throws Exception {
-        double subtotal = request.items().stream()
-                .mapToDouble(item -> item.precioUnitario() * item.cantidad())
-                .sum();
-        double descuentoMonto = subtotal * (request.descuentoPorcentaje() / 100.0);
-        double totalFinal = subtotal - descuentoMonto;
+        java.math.BigDecimal subtotal = request.items().stream()
+                .map(item -> item.precioUnitario().multiply(java.math.BigDecimal.valueOf(item.cantidad())))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal descuentoMonto = io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(
+                subtotal.multiply(request.descuentoPorcentaje()).divide(new java.math.BigDecimal("100"), 10, java.math.RoundingMode.HALF_UP)
+        );
+        java.math.BigDecimal totalFinal = subtotal.subtract(descuentoMonto);
 
         return TransactionHelper.runInTransaction(txConn -> {
             // 1. Crear boleta en DB

@@ -7,8 +7,10 @@ import io.github.ramiro.escapesj.persistencia.ProductoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,8 +20,14 @@ public class FacturacionServiceTest {
 
     private FacturacionService facturacionService;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
     public void setup() throws Exception {
+        Path db = tempDir.resolve("escapesj-test.db");
+        DatabaseService.setCustomDbUrl("jdbc:sqlite:" + db.toAbsolutePath().toString());
+        DatabaseService.reiniciarTest();
         DatabaseService.inicializar(); // ensures DB is seeded/migrated
         BoletaRepository boletaRepo = new BoletaRepository();
         ProductoRepository productoRepo = new ProductoRepository();
@@ -29,6 +37,12 @@ public class FacturacionServiceTest {
         productoRepo.guardar(new Producto("TEST-F-1", "Test", "Test", new BigDecimal("1000.00"), 100));
         productoRepo.guardar(new Producto("TEST-F-2", "Test2", "Test", new BigDecimal("0.10"), 100));
         productoRepo.guardar(new Producto("TEST-F-3", "Test3", "Test", new BigDecimal("0.20"), 100));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    public void tearDown() {
+        DatabaseService.setCustomDbUrl(null);
+        DatabaseService.reiniciarTest();
     }
 
     @Test

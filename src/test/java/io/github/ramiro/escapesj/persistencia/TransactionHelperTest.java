@@ -26,20 +26,24 @@ public class TransactionHelperTest {
     public TransactionHelperTest() {
     }
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path tempDir;
+
     @org.junit.jupiter.api.BeforeEach
     public void setUp() throws Exception {
+        java.nio.file.Path db = tempDir.resolve("escapesj-test.db");
+        DatabaseService.setCustomDbUrl("jdbc:sqlite:" + db.toAbsolutePath().toString());
+        DatabaseService.reiniciarTest();
         DatabaseService.inicializar();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        // Clean up test data
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute("DELETE FROM boleta_items WHERE codigo_producto = 'TEST-001' OR codigo_producto = 'TEST-002'");
-            stmt.execute("DELETE FROM productos WHERE codigo = 'TEST-001' OR codigo = 'TEST-002'");
-            stmt.execute("DELETE FROM servicios_historial WHERE nombre = 'Test Rollback Cliente' OR nombre = 'Test Commit Cliente'");
-            stmt.execute("DELETE FROM boletas WHERE nombre_cliente = 'Test Rollback Cliente' OR nombre_cliente = 'Test Commit Cliente'");
+        if (conn != null && !conn.isClosed()) {
+            conn.close();
         }
+        DatabaseService.setCustomDbUrl(null);
+        DatabaseService.reiniciarTest();
     }
 
     private int countRows(String sql) throws Exception {

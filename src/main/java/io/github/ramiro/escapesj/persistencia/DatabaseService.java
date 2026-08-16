@@ -6,8 +6,13 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class DatabaseService {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
@@ -137,15 +142,26 @@ public class DatabaseService {
     }
 
     private static int obtenerLegacyDbVersion(Connection conn) {
-        try (Statement stmt = conn.createStatement();
-             java.sql.ResultSet rsVer = stmt.executeQuery("SELECT valor FROM configuracion WHERE clave = 'db_version'")) {
-            if (rsVer.next()) {
-                return Integer.parseInt(rsVer.getString("valor"));
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "SELECT valor FROM configuracion WHERE clave = ?")) {
+            stmt.setString(1, "db_version");
+            try (java.sql.ResultSet rsVer = stmt.executeQuery()) {
+                if (!rsVer.next()) {
+                    return 0;
+                }
+
+                String valor = rsVer.getString("valor");
+                try {
+                    return Integer.parseInt(valor);
+                } catch (NumberFormatException e) {
+                    throw new PersistenceException("Valor inválido para db_version: " + valor, e);
+                }
             }
+        } catch (PersistenceException e) {
+            throw e;
         } catch (Exception e) {
-            // Si falla, no hay versión legacy o no existe la tabla
+            throw new PersistenceException("Error al consultar db_version legacy", e);
         }
-        return 0;
     }
 
     /**
@@ -307,49 +323,59 @@ public class DatabaseService {
     }
 
     public static void ejecutarMigraciones(Connection conn, List<Migration> migraciones) throws Exception {
-        try (Statement stmt = conn.createStatement()) {
-            for (Migration m : migraciones) {
-                boolean alreadyApplied = false;
-                try (java.sql.ResultSet rs = stmt.executeQuery("SELECT 1 FROM schema_migrations WHERE version = " + m.version())) {
-                    if (rs.next()) {
-                        alreadyApplied = true;
-                    }
-                } catch (Exception e) {
-                    // Ignore, maybe schema_migrations doesn't exist? (It should, we created it above)
+        List<Migration> migracionesOrdenadas = new ArrayList<>(migraciones);
+        Set<Integer> versiones = new HashSet<>();
+        for (Migration migracion : migracionesOrdenadas) {
+            if (!versiones.add(migracion.version())) {
+                throw new PersistenceException("Versión de migración duplicada: " + migracion.version());
+            }
+        }
+        migracionesOrdenadas.sort(Comparator.comparingInt(Migration::version));
+
+        for (Migration m : migracionesOrdenadas) {
+            boolean alreadyApplied;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT 1 FROM schema_migrations WHERE version = ?")) {
+                ps.setInt(1, m.version());
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    alreadyApplied = rs.next();
                 }
+            } catch (Exception e) {
+                throw new PersistenceException(
+                        "Error al consultar la migración aplicada versión " + m.version(), e);
+            }
 
-                if (alreadyApplied) continue;
+            if (alreadyApplied) continue;
 
-                long start = System.currentTimeMillis();
-                boolean originalAutoCommit = conn.getAutoCommit();
-                conn.setAutoCommit(false);
+            long start = System.currentTimeMillis();
+            boolean originalAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try {
+                m.action().execute(conn);
+
+                long elapsed = System.currentTimeMillis() - start;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "INSERT INTO schema_migrations (version, descripcion, ms_transcurridos) VALUES (?, ?, ?)")) {
+                    ps.setInt(1, m.version());
+                    ps.setString(2, m.descripcion());
+                    ps.setLong(3, elapsed);
+                    ps.executeUpdate();
+                }
+                conn.commit();
+                logger.info("Migración a versión {} exitosa: {}", m.version(), m.descripcion());
+            } catch (Exception e) {
                 try {
-                    m.action().execute(conn);
-
-                    long elapsed = System.currentTimeMillis() - start;
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(
-                            "INSERT INTO schema_migrations (version, descripcion, ms_transcurridos) VALUES (?, ?, ?)")) {
-                        ps.setInt(1, m.version());
-                        ps.setString(2, m.descripcion());
-                        ps.setLong(3, elapsed);
-                        ps.executeUpdate();
-                    }
-                    conn.commit();
-                    logger.info("Migración a versión {} exitosa: {}", m.version(), m.descripcion());
-                } catch (Exception e) {
-                    try {
-                        conn.rollback();
-                    } catch (Exception rollbackEx) {
-                        e.addSuppressed(rollbackEx);
-                    }
-                    logger.error("Error crítico durante la migración a versión {}. Rollback ejecutado.", m.version(), e);
-                    throw new PersistenceException("Error durante la migración a versión " + m.version(), e);
-                } finally {
-                    try {
-                        conn.setAutoCommit(originalAutoCommit);
-                    } catch (Exception ex) {
-                        logger.error("Error restaurando autocommit tras migración.", ex);
-                    }
+                    conn.rollback();
+                } catch (Exception rollbackEx) {
+                    e.addSuppressed(rollbackEx);
+                }
+                logger.error("Error crítico durante la migración a versión {}. Rollback ejecutado.", m.version(), e);
+                throw new PersistenceException("Error durante la migración a versión " + m.version(), e);
+            } finally {
+                try {
+                    conn.setAutoCommit(originalAutoCommit);
+                } catch (Exception ex) {
+                    logger.error("Error restaurando autocommit tras migración.", ex);
                 }
             }
         }

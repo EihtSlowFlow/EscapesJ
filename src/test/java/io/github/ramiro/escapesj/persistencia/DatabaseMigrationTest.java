@@ -66,10 +66,17 @@ public class DatabaseMigrationTest {
         try (Connection conn = getTestConnection()) {
             assertTrue(DatabaseService.existeColumna(conn, "usuarios", "pregunta_seguridad"));
             
-            // Verificamos que se registró la migración 3
+            // Verificamos que se registraron todas las migraciones
             try (Statement stmt = conn.createStatement();
-                 java.sql.ResultSet rs = stmt.executeQuery("SELECT * FROM schema_migrations WHERE version = 3")) {
+                 java.sql.ResultSet rs = stmt.executeQuery(
+                         "SELECT version FROM schema_migrations ORDER BY version")) {
                 assertTrue(rs.next());
+                assertEquals(1, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(3, rs.getInt(1));
+                assertFalse(rs.next());
             }
         }
     }
@@ -101,7 +108,9 @@ public class DatabaseMigrationTest {
         
         // Ejecutamos la segunda vez
         assertDoesNotThrow(() -> {
-            DatabaseService.ejecutarMigraciones(getTestConnection(), DatabaseService.MIGRACIONES);
+            try (Connection conn = getTestConnection()) {
+                DatabaseService.ejecutarMigraciones(conn, DatabaseService.MIGRACIONES);
+            }
         });
 
         // Verificamos que solo se insertaron una vez los registros de migración
@@ -118,9 +127,8 @@ public class DatabaseMigrationTest {
         try (Connection conn = getTestConnection();
              Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE TABLE dummy (id INTEGER)");
-            prepareSchemaMigrationsTable(conn);
-            // Rompemos la tabla schema_migrations para que falle el insert de registro
-            stmt.execute("DROP TABLE schema_migrations");
+            // La consulta de versión funciona, pero el INSERT falla porque faltan sus columnas.
+            stmt.execute("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY)");
         }
 
         List<DatabaseService.Migration> testMigrations = List.of(
@@ -144,21 +152,36 @@ public class DatabaseMigrationTest {
     }
 
     @Test
-    public void testVersionesFueraDeOrdenOHuecos() throws Exception {
+    public void testFalloAlConsultarVersionAplicadaSePropagaSinEjecutar() throws Exception {
+        try (Connection conn = getTestConnection()) {
+            int[] ejecuciones = {0};
+            List<DatabaseService.Migration> migraciones = List.of(
+                    new DatabaseService.Migration(99, "No debe ejecutarse", c -> ejecuciones[0]++));
+
+            assertThrows(PersistenceException.class,
+                    () -> DatabaseService.ejecutarMigraciones(conn, migraciones));
+            assertEquals(0, ejecuciones[0]);
+        }
+    }
+
+    @Test
+    public void testVersionesFueraDeOrdenSeEjecutanEnOrdenAscendente() throws Exception {
         try (Connection conn = getTestConnection()) {
             prepareSchemaMigrationsTable(conn);
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("CREATE TABLE test_table (id INTEGER)");
             }
             
-            // Definimos migraciones 10 y 20
+            StringBuilder orden = new StringBuilder();
             List<DatabaseService.Migration> testMigrations = List.of(
                 new DatabaseService.Migration(20, "Migración 20", c -> {
+                    orden.append("20");
                     try (Statement stmt = c.createStatement()) {
                         stmt.execute("ALTER TABLE test_table ADD COLUMN col20 TEXT");
                     }
                 }),
                 new DatabaseService.Migration(10, "Migración 10", c -> {
+                    orden.append("10");
                     try (Statement stmt = c.createStatement()) {
                         stmt.execute("ALTER TABLE test_table ADD COLUMN col10 TEXT");
                     }
@@ -167,9 +190,67 @@ public class DatabaseMigrationTest {
             
             DatabaseService.ejecutarMigraciones(conn, testMigrations);
             
-            // Verificamos que se ejecutaron ambas a pesar del desorden
+            assertEquals("1020", orden.toString());
             assertTrue(DatabaseService.existeColumna(conn, "test_table", "col10"));
             assertTrue(DatabaseService.existeColumna(conn, "test_table", "col20"));
+        }
+    }
+
+    @Test
+    public void testVersionesDuplicadasSeRechazanSinEjecutar() throws Exception {
+        try (Connection conn = getTestConnection()) {
+            prepareSchemaMigrationsTable(conn);
+            int[] ejecuciones = {0};
+            List<DatabaseService.Migration> migraciones = List.of(
+                    new DatabaseService.Migration(10, "Primera", c -> ejecuciones[0]++),
+                    new DatabaseService.Migration(10, "Duplicada", c -> ejecuciones[0]++));
+
+            assertThrows(PersistenceException.class,
+                    () -> DatabaseService.ejecutarMigraciones(conn, migraciones));
+            assertEquals(0, ejecuciones[0]);
+        }
+    }
+
+    @Test
+    public void testConversionMonetariaExactaYNoSeRepite() throws Exception {
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE TABLE productos (codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, " +
+                    "descripcion TEXT NOT NULL, precio REAL NOT NULL, stock INTEGER NOT NULL DEFAULT 0)");
+            stmt.execute("INSERT INTO productos VALUES ('TEST', 'Producto', 'Prueba', 1000.50, 1)");
+        }
+
+        DatabaseService.inicializar();
+        assertEquals(100050L, obtenerPrecioProductoTest());
+
+        try (Connection conn = getTestConnection()) {
+            DatabaseService.ejecutarMigraciones(conn, DatabaseService.MIGRACIONES);
+        }
+        assertEquals(100050L, obtenerPrecioProductoTest());
+    }
+
+    @Test
+    public void testDbVersionCorruptoFallaSinModificarImportes() throws Exception {
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE TABLE configuracion (clave VARCHAR(100) PRIMARY KEY, valor TEXT NOT NULL)");
+            stmt.execute("INSERT INTO configuracion VALUES ('db_version', 'abc')");
+            stmt.execute("CREATE TABLE productos (codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, " +
+                    "descripcion TEXT NOT NULL, precio REAL NOT NULL, stock INTEGER NOT NULL DEFAULT 0)");
+            stmt.execute("INSERT INTO productos VALUES ('TEST', 'Producto', 'Prueba', 1000.50, 1)");
+        }
+
+        assertThrows(PersistenceException.class, DatabaseService::inicializar);
+        assertEquals(1000.50, obtenerPrecioProductoTest(), 0.001);
+    }
+
+    private double obtenerPrecioProductoTest() throws Exception {
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement();
+             java.sql.ResultSet rs = stmt.executeQuery(
+                     "SELECT precio FROM productos WHERE codigo = 'TEST'")) {
+            assertTrue(rs.next());
+            return rs.getDouble(1);
         }
     }
 

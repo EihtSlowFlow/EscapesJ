@@ -13,9 +13,7 @@ import java.math.RoundingMode;
 import java.net.URL;
 import java.util.List;
 
-/**
- * Genera boletas en PDF compactas, ajustadas al contenido, listas para imprimir.
- */
+/** Genera boletas en PDF A4 listas para imprimir. */
 public class BoletaPdfService {
 
     /**
@@ -40,13 +38,7 @@ public class BoletaPdfService {
         String fileName = String.format("Boleta_%04d_%s.pdf", numeroBoleta, fechaLocal.replace("/", "-"));
         String filePath = new java.io.File(dir, fileName).getAbsolutePath();
 
-        // Altura dinámica ajustada al contenido
-        //  Logo+cabecera: ~90pt, cliente: 25pt, tabla header: 18pt, por ítem: 15pt, totales+pie: ~80pt
-        float alturaContenido = 90f + 25f + 18f + (items.size() * 15f) + 80f;
-        if (descuentoPorcentaje.compareTo(BigDecimal.ZERO) > 0) alturaContenido += 30f; // descuento + línea EFECTIVO
-        alturaContenido = Math.max(alturaContenido, 220f);
-        Rectangle pagesize = new Rectangle(454f, alturaContenido);
-        Document document = new Document(pagesize, 15, 15, 10, 8);
+        Document document = new Document(PageSize.A4, 28, 28, 24, 24);
 
         try {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
@@ -64,30 +56,26 @@ public class BoletaPdfService {
             aviso.setSpacingAfter(3f);
             document.add(aviso);
 
-            // ── CABECERA: Logo + Número ──
-            PdfPTable header = new PdfPTable(2);
+            // ── CABECERA: Logo + Emisor + Número/fecha ──
+            PdfPTable header = new PdfPTable(3);
             header.setWidthPercentage(100);
-            header.setWidths(new float[]{1f, 1f});
-            header.setSpacingAfter(4f);
+            header.setWidths(new float[]{1.1f, 3.5f, 1.7f});
+            header.setSpacingAfter(8f);
 
             PdfPCell cellLogo = cellSinBorde();
-            if (emisor != null && emisor.nombre() != null) {
-                cellLogo.addElement(new Paragraph(emisor.nombre(), fTitle));
-            } else {
-                try {
-                    URL logoUrl = BoletaPdfService.class.getResource("/Logo.png");
-                    if (logoUrl != null) {
-                        Image logo = Image.getInstance(logoUrl);
-                        logo.scaleToFit(60, 60);
-                        cellLogo.addElement(logo);
-                    } else {
-                        cellLogo.addElement(new Paragraph("escapesJ", fTitle));
-                    }
-                } catch (Exception e) {
-                    cellLogo.addElement(new Paragraph("escapesJ", fTitle));
+            agregarLogo(cellLogo, fTitle);
+            header.addCell(cellLogo);
+
+            PdfPCell cellEmisor = cellSinBorde();
+            if (emisor != null) {
+                cellEmisor.addElement(new Paragraph(emisor.nombre(), fTitle));
+                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
+                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
+                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
                 }
             }
-            header.addCell(cellLogo);
+            header.addCell(cellEmisor);
 
             PdfPCell cellNum = cellSinBorde();
             cellNum.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
@@ -99,25 +87,6 @@ public class BoletaPdfService {
             cellNum.addElement(fechaP);
             header.addCell(cellNum);
             document.add(header);
-            document.add(new Paragraph(" "));
-
-            // ── DATOS DEL EMISOR (Cabecera) ──
-            if (emisor != null) {
-                PdfPTable tableEmisor = new PdfPTable(1);
-                tableEmisor.setWidthPercentage(100);
-                PdfPCell cellEmisor = cellSinBorde();
-                cellEmisor.addElement(new Paragraph("Atendido por: " + emisor.nombre(), fBody8));
-                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
-                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
-                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
-                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
-                }
-                tableEmisor.addCell(cellEmisor);
-                document.add(tableEmisor);
-                document.add(new Paragraph(" "));
-            }
-
-
 
             // ── CLIENTE ──
             Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
@@ -131,6 +100,8 @@ public class BoletaPdfService {
             PdfPTable tabla = new PdfPTable(4);
             tabla.setWidthPercentage(100);
             tabla.setWidths(new float[]{3.5f, 0.8f, 1.3f, 1.3f});
+            tabla.setHeaderRows(1);
+            tabla.setSplitLate(false);
 
             // Headers
             for (String h : new String[]{"Descripción", "Cant.", "Precio", "Importe"}) {
@@ -164,11 +135,16 @@ public class BoletaPdfService {
             BigDecimal descuento = esEfectivo ? io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(descuentoPorcentaje).divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP)) : BigDecimal.ZERO;
             BigDecimal totalFinal = subtotal.subtract(descuento);
 
+            PdfPTable tablaTotales = new PdfPTable(1);
+            tablaTotales.setWidthPercentage(100);
+            tablaTotales.setKeepTogether(true);
+            PdfPCell bloqueTotales = cellSinBorde();
+
             // Subtotal
             Paragraph subP = new Paragraph(String.format("Subtotal: $%,.2f", subtotal), fBody8);
             subP.setAlignment(Paragraph.ALIGN_RIGHT);
             subP.setSpacingAfter(1f);
-            document.add(subP);
+            bloqueTotales.addElement(subP);
 
             // Descuento (solo si efectivo)
             if (esEfectivo && descuento.compareTo(BigDecimal.ZERO) > 0) {
@@ -176,14 +152,14 @@ public class BoletaPdfService {
                         String.format("DTO: -%s%% = -$%,.2f", descuentoPorcentaje.toString(), descuento), fBody8);
                 dtoP.setAlignment(Paragraph.ALIGN_RIGHT);
                 dtoP.setSpacingAfter(1f);
-                document.add(dtoP);
+                bloqueTotales.addElement(dtoP);
             }
 
             // Total final
             Paragraph totalP = new Paragraph(String.format("TOTAL: $%,.2f", totalFinal), fTotal);
             totalP.setAlignment(Paragraph.ALIGN_RIGHT);
             totalP.setSpacingAfter(2f);
-            document.add(totalP);
+            bloqueTotales.addElement(totalP);
 
             // ── PIE ──
             String condVenta = esEfectivo
@@ -196,15 +172,32 @@ public class BoletaPdfService {
                         String.format("EFECTIVO: $%,.2f", totalFinal), fBold10);
                 pagoP.setAlignment(Paragraph.ALIGN_RIGHT);
                 pagoP.setSpacingAfter(2f);
-                document.add(pagoP);
+                bloqueTotales.addElement(pagoP);
             }
-            document.add(cond);
+            bloqueTotales.addElement(cond);
+            tablaTotales.addCell(bloqueTotales);
+            document.add(tablaTotales);
 
             document.close();
             return filePath;
         } catch (Exception e) {
             throw new RuntimeException("Error al generar PDF: " + e.getMessage(), e);
         }
+    }
+
+    private static void agregarLogo(PdfPCell cell, Font fallbackFont) {
+        try {
+            URL logoUrl = BoletaPdfService.class.getResource("/Logo.png");
+            if (logoUrl != null) {
+                Image logo = Image.getInstance(logoUrl);
+                logo.scaleToFit(60, 60);
+                cell.addElement(logo);
+                return;
+            }
+        } catch (Exception ignored) {
+            // Se usa el texto de respaldo si el recurso no puede cargarse.
+        }
+        cell.addElement(new Paragraph("escapesJ", fallbackFont));
     }
 
     private static PdfPCell cellSinBorde() {

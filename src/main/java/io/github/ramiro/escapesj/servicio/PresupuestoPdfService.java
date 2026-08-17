@@ -12,7 +12,7 @@ import java.net.URL;
 import java.util.List;
 
 /**
- * Genera presupuestos en PDF compactos, con código único, múltiples ítems y fecha de validez.
+ * Genera presupuestos en PDF A4, con código único, múltiples ítems y fecha de validez.
  */
 public class PresupuestoPdfService {
 
@@ -35,11 +35,7 @@ public class PresupuestoPdfService {
                 codigoUnico, fechaEmisionLocal.replace("/", "-"));
         String filePath = new File(dir, fileName).getAbsolutePath();
 
-        // Altura dinámica
-        float alturaContenido = 90f + 25f + 18f + (items.size() * 15f) + 90f;
-        alturaContenido = Math.max(alturaContenido, 250f);
-        Rectangle pagesize = new Rectangle(454f, alturaContenido);
-        Document document = new Document(pagesize, 15, 15, 10, 8);
+        Document document = new Document(PageSize.A4, 28, 28, 24, 24);
 
         try {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
@@ -58,30 +54,26 @@ public class PresupuestoPdfService {
             titulo.setSpacingAfter(3f);
             document.add(titulo);
 
-            // ── CABECERA: Logo + Código ──
-            PdfPTable header = new PdfPTable(2);
+            // ── CABECERA: Logo + Emisor + Código/fecha ──
+            PdfPTable header = new PdfPTable(3);
             header.setWidthPercentage(100);
-            header.setWidths(new float[]{1f, 1f});
-            header.setSpacingAfter(4f);
+            header.setWidths(new float[]{1.1f, 3.5f, 1.7f});
+            header.setSpacingAfter(8f);
 
             PdfPCell cellLogo = cellSinBorde();
-            if (emisor != null && emisor.nombre() != null) {
-                cellLogo.addElement(new Paragraph(emisor.nombre(), fTitle));
-            } else {
-                try {
-                    URL logoUrl = PresupuestoPdfService.class.getResource("/Logo.png");
-                    if (logoUrl != null) {
-                        Image logo = Image.getInstance(logoUrl);
-                        logo.scaleToFit(60, 60);
-                        cellLogo.addElement(logo);
-                    } else {
-                        cellLogo.addElement(new Paragraph("escapesJ", fTitle));
-                    }
-                } catch (Exception e) {
-                    cellLogo.addElement(new Paragraph("escapesJ", fTitle));
+            agregarLogo(cellLogo, fTitle);
+            header.addCell(cellLogo);
+
+            PdfPCell cellEmisor = cellSinBorde();
+            if (emisor != null) {
+                cellEmisor.addElement(new Paragraph(emisor.nombre(), fTitle));
+                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
+                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
+                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
                 }
             }
-            header.addCell(cellLogo);
+            header.addCell(cellEmisor);
 
             PdfPCell cellInfo = cellSinBorde();
             cellInfo.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
@@ -93,23 +85,6 @@ public class PresupuestoPdfService {
             cellInfo.addElement(fechaP);
             header.addCell(cellInfo);
             document.add(header);
-            document.add(new Paragraph(" "));
-
-            // ── DATOS DEL EMISOR (Cabecera) ──
-            if (emisor != null) {
-                PdfPTable tableEmisor = new PdfPTable(1);
-                tableEmisor.setWidthPercentage(100);
-                PdfPCell cellEmisor = cellSinBorde();
-                cellEmisor.addElement(new Paragraph("Atendido por: " + emisor.nombre(), fBody8));
-                cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
-                cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
-                if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
-                    cellEmisor.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), fBody8));
-                }
-                tableEmisor.addCell(cellEmisor);
-                document.add(tableEmisor);
-                document.add(new Paragraph(" "));
-            }
 
             // ── CLIENTE ──
             Paragraph clienteP = new Paragraph("Cliente: " + nombreCliente, fBody8);
@@ -123,6 +98,8 @@ public class PresupuestoPdfService {
             PdfPTable tabla = new PdfPTable(4);
             tabla.setWidthPercentage(100);
             tabla.setWidths(new float[]{3.5f, 0.8f, 1.3f, 1.3f});
+            tabla.setHeaderRows(1);
+            tabla.setSplitLate(false);
 
             for (String h : new String[]{"Descripción", "Cant.", "Precio", "Importe"}) {
                 PdfPCell c = new PdfPCell(new Paragraph(h, fBold10));
@@ -175,6 +152,21 @@ public class PresupuestoPdfService {
         } catch (Exception e) {
             throw new RuntimeException("Error al generar PDF de presupuesto: " + e.getMessage(), e);
         }
+    }
+
+    private static void agregarLogo(PdfPCell cell, Font fallbackFont) {
+        try {
+            URL logoUrl = PresupuestoPdfService.class.getResource("/Logo.png");
+            if (logoUrl != null) {
+                Image logo = Image.getInstance(logoUrl);
+                logo.scaleToFit(60, 60);
+                cell.addElement(logo);
+                return;
+            }
+        } catch (Exception ignored) {
+            // Se usa el texto de respaldo si el recurso no puede cargarse.
+        }
+        cell.addElement(new Paragraph("escapesJ", fallbackFont));
     }
 
     private static PdfPCell cellSinBorde() {

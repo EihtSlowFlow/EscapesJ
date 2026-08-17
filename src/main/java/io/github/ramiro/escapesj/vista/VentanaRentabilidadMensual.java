@@ -10,6 +10,7 @@ import java.awt.*;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 public class VentanaRentabilidadMensual extends JFrame {
     private final RentabilidadService rentabilidadService;
@@ -47,6 +48,9 @@ public class VentanaRentabilidadMensual extends JFrame {
         Integer[] meses = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
         comboMes = new JComboBox<>(meses);
         comboMes.setSelectedItem(LocalDate.now().getMonthValue());
+        
+        spinnerAnio.addChangeListener(e -> invalidarResultados());
+        comboMes.addActionListener(e -> invalidarResultados());
 
         comboFiltroOrigen = new JComboBox<>(FiltroOrigen.values());
         comboFiltroOrigen.addActionListener(e -> {
@@ -156,18 +160,19 @@ public class VentanaRentabilidadMensual extends JFrame {
         FiltroOrigen origen = (FiltroOrigen) comboFiltroOrigen.getSelectedItem();
         resumenVisible = rentabilidadService.filtrarPorOrigen(resumenCompleto, origen);
         
-        lblFacturacionTotal.setText("Facturación Total del Mes: $" + String.format("%,.2f", resumenVisible.getFacturacionTotal()));
-        lblFacturacionConCostos.setText("Facturación (Ops. Completas): $" + String.format("%,.2f", resumenVisible.facturacionConCostos()));
-        lblCostoConocido.setText("Costo de Materiales (Ops. Completas): $" + String.format("%,.2f", resumenVisible.costoConocido()));
-        lblGanancia.setText("Ganancia bruta calculable: $" + String.format("%,.2f", resumenVisible.gananciaCalculable()));
+        Locale ar = Locale.forLanguageTag("es-AR");
+        lblFacturacionTotal.setText("Facturación Total del Mes: $" + String.format(ar, "%,.2f", resumenVisible.getFacturacionTotal()));
+        lblFacturacionConCostos.setText("Facturación (Ops. Completas): $" + String.format(ar, "%,.2f", resumenVisible.facturacionConCostos()));
+        lblCostoConocido.setText("Costo de Materiales (Ops. Completas): $" + String.format(ar, "%,.2f", resumenVisible.costoConocido()));
+        lblGanancia.setText("Ganancia bruta calculable: $" + String.format(ar, "%,.2f", resumenVisible.gananciaCalculable()));
         
         if (resumenVisible.margenPorcentual() != null) {
-            lblMargen.setText("Margen de Ganancia: " + String.format("%,.2f%%", resumenVisible.margenPorcentual()));
+            lblMargen.setText("Margen de Ganancia: " + String.format(ar, "%,.2f%%", resumenVisible.margenPorcentual()));
         } else {
             lblMargen.setText("Margen de Ganancia: No disponible");
         }
         
-        lblFacturacionSinCostos.setText("Facturación (Ops. Incompletas/Sin Costo): $" + String.format("%,.2f", resumenVisible.facturacionSinCostos()));
+        lblFacturacionSinCostos.setText("Facturación (Ops. Incompletas/Sin Costo): $" + String.format(ar, "%,.2f", resumenVisible.facturacionSinCostos()));
         lblCantCompletas.setText("Cant. Operaciones Completas: " + resumenVisible.cantidadCompletas());
         lblCantIncompletas.setText("Cant. Operaciones Incompletas: " + resumenVisible.cantidadIncompletas());
 
@@ -243,18 +248,41 @@ public class VentanaRentabilidadMensual extends JFrame {
         if (resumenVisible == null) return;
         
         for (var d : resumenVisible.detalles()) {
-            String gananciaStr = d.completa() && d.ganancia() != null ? String.format("$%,.2f", d.ganancia()) : "N/A";
-            String margenStr = d.completa() && d.margen() != null ? String.format("%,.2f%%", d.margen()) : "N/A";
+            Locale ar = Locale.forLanguageTag("es-AR");
+            String gananciaStr = d.completa() && d.ganancia() != null ? String.format(ar, "$%,.2f", d.ganancia()) : "N/A";
+            String margenStr = d.completa() && d.margen() != null ? String.format(ar, "%,.2f%%", d.margen()) : "N/A";
             
             modeloTabla.addRow(new Object[]{
                 d.origen(),
-                d.fecha(),
+                io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(d.fecha()),
                 d.cliente(),
-                String.format("$%,.2f", d.facturacion()),
+                String.format(ar, "$%,.2f", d.facturacion()),
                 gananciaStr,
                 margenStr,
                 d.completa() ? "Completa" : "Incompleta"
             });
+        }
+    }
+
+    private void invalidarResultados() {
+        resumenCompleto = null;
+        resumenVisible = null;
+        if (btnExportarPdf != null) {
+            btnExportarPdf.setEnabled(false);
+        }
+        if (lblFacturacionTotal != null) {
+            lblFacturacionTotal.setText("");
+            lblFacturacionConCostos.setText("");
+            lblCostoConocido.setText("");
+            lblGanancia.setText("");
+            lblMargen.setText("");
+            lblFacturacionSinCostos.setText("");
+            lblCantCompletas.setText("");
+            lblCantIncompletas.setText("");
+            lblEstadoParcial.setText("");
+            if (modeloTabla != null) {
+                modeloTabla.setRowCount(0);
+            }
         }
     }
 

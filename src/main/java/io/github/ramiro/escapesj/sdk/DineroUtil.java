@@ -60,7 +60,7 @@ public class DineroUtil {
         String parseable;
 
         if (countDots > 0 && countCommas == 1) {
-            if (!limpio.matches("^\\d{1,3}(\\.\\d{3})*,\\d+$")) {
+            if (!limpio.matches("^\\d{1,3}(\\.\\d{3})*,\\d{1,2}$")) {
                 throw new IllegalArgumentException("Formato inválido.");
             }
             parseable = limpio.replace(".", "").replace(",", ".");
@@ -70,15 +70,18 @@ public class DineroUtil {
             }
             parseable = limpio.replace(".", "");
         } else if (countCommas == 1 && countDots == 0) {
-            if (!limpio.matches("^\\d+,\\d+$")) {
+            if (!limpio.matches("^\\d+,\\d{1,2}$")) {
                 throw new IllegalArgumentException("Formato inválido.");
             }
             parseable = limpio.replace(",", ".");
         } else if (countDots == 1 && countCommas == 0) {
-            if (!limpio.matches("^\\d+\\.\\d+$")) {
+            if (limpio.matches("^\\d{1,3}\\.\\d{3}$")) {
+                parseable = limpio.replace(".", "");
+            } else if (limpio.matches("^\\d+\\.\\d{1,2}$")) {
+                parseable = limpio;
+            } else {
                 throw new IllegalArgumentException("Formato inválido.");
             }
-            parseable = limpio;
         } else if (countDots == 0 && countCommas == 0) {
             if (!limpio.matches("^\\d+$")) {
                 throw new IllegalArgumentException("Formato inválido.");
@@ -89,7 +92,11 @@ public class DineroUtil {
         }
 
         try {
-            return new BigDecimal(parseable);
+            BigDecimal resultado = new BigDecimal(parseable);
+            if (resultado.scale() > 2) {
+                throw new IllegalArgumentException("No se permiten más de dos decimales.");
+            }
+            return resultado;
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("El importe no tiene un formato numérico válido.");
         }

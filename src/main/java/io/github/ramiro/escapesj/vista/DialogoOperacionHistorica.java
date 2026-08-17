@@ -108,7 +108,7 @@ public class DialogoOperacionHistorica extends JDialog {
         scroll.getViewport().setBackground(new Color(30, 35, 48));
         add(scroll);
         
-        setSize(450, 600);
+        ZoomManager.packAndFitToScreen(this, 450, 600);
         setLocationRelativeTo(getParent());
     }
 

@@ -75,8 +75,16 @@ class RentabilidadServiceTest {
     
     @Test
     void testDescuentoConvierteEnPerdida() throws Exception {
-        int b1Id = boletaRepository.crearBoleta("111", "Juan", "2026-08-10", new BigDecimal("50.00"));
-        boletaRepository.agregarItem(b1Id, "PRODUCTO", "P1", "COD-1", 1, new BigDecimal("100.00"), new BigDecimal("100.00"));
+        io.github.ramiro.escapesj.persistencia.ProductoRepository productoRepository = new io.github.ramiro.escapesj.persistencia.ProductoRepository();
+        io.github.ramiro.escapesj.persistencia.ServicioRepository servicioRepository = new io.github.ramiro.escapesj.persistencia.ServicioRepository();
+        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
+        
+        productoRepository.guardar(new io.github.ramiro.escapesj.modelo.Producto("COD-DESC", "Prod Desc", "Desc", new BigDecimal("100.00"), 10, new BigDecimal("100.00")));
+        
+        ItemFacturacion item = new ItemFacturacion("PRODUCTO", "P1", "COD-DESC", 1, new BigDecimal("100.00"));
+        FacturacionRequest req = new FacturacionRequest("111", "Pepe", "2026-08-01", java.util.List.of(item), "EFECTIVO", new BigDecimal("50.00"));
+        
+        facturacionService.facturarOrden(req);
 
         var resumen = rentabilidadService.calcularResumenMensual(2026, 8);
         assertEquals(new BigDecimal("-50.00"), resumen.gananciaCalculable());
@@ -85,8 +93,23 @@ class RentabilidadServiceTest {
 
     @Test
     void testCambioDeCostoHistoricoNoAfectaBoleta() throws Exception {
-        int b1Id = boletaRepository.crearBoleta("111", "Juan", "2026-08-10", new BigDecimal("200.00"));
-        boletaRepository.agregarItem(b1Id, "PRODUCTO", "P1", "COD-1", 1, new BigDecimal("200.00"), new BigDecimal("50.00"));
+        DatabaseService.getConnection().createStatement().execute("DELETE FROM productos");
+        
+        io.github.ramiro.escapesj.persistencia.ProductoRepository productoRepository = new io.github.ramiro.escapesj.persistencia.ProductoRepository();
+        io.github.ramiro.escapesj.persistencia.ServicioRepository servicioRepository = new io.github.ramiro.escapesj.persistencia.ServicioRepository();
+        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
+        
+        io.github.ramiro.escapesj.modelo.Producto prod = new io.github.ramiro.escapesj.modelo.Producto("COD-1", "P1", "Desc", new BigDecimal("200.00"), 10, new BigDecimal("50.00"));
+        productoRepository.guardar(prod);
+        
+        ItemFacturacion item = new ItemFacturacion("PRODUCTO", "P1", "COD-1", 1, new BigDecimal("200.00"));
+        java.util.List<ItemFacturacion> items = java.util.List.of(item);
+        FacturacionRequest req = new FacturacionRequest("222", "Juan", "2026-08-02", items, "EFECTIVO", BigDecimal.ZERO);
+        facturacionService.facturarOrden(req);
+        
+        // Modificar el costo actual del producto
+        io.github.ramiro.escapesj.modelo.Producto modificado = new io.github.ramiro.escapesj.modelo.Producto(prod.getCodigo(), prod.getNombre(), prod.getDescripcion(), prod.getPrecio(), prod.getStock(), new BigDecimal("20.00"));
+        productoRepository.guardar(modificado);
         
         var resumen = rentabilidadService.calcularResumenMensual(2026, 8);
         assertEquals(new BigDecimal("50.00"), resumen.costoConocido());
@@ -163,12 +186,17 @@ class RentabilidadServiceTest {
     
     @Test
     void testMarcarDigitalizadoSinVincular() throws Exception {
-        OperacionHistorica op1 = new OperacionHistorica(0, "2026-08-05", "REF", "Pepe", "", new BigDecimal("1000.00"), new BigDecimal("500.00"), "", "DIGITALIZADO", null, "", "");
+        OperacionHistorica op1 = new OperacionHistorica(0, "2026-08-05", "REF", "Pepe", "", new BigDecimal("1000.00"), new BigDecimal("500.00"), "", "PENDIENTE", null, "", "");
         operacionRepository.guardar(op1);
         
-        var opt = operacionRepository.buscarTodas().stream().findFirst();
-        assertTrue(opt.isPresent());
-        assertEquals("DIGITALIZADO", opt.get().getEstado());
-        assertNull(opt.get().getBoletaDigitalId());
+        var guardada = operacionRepository.buscarTodas().stream().findFirst().get();
+        assertEquals("PENDIENTE", guardada.getEstado());
+        
+        guardada.setEstado("DIGITALIZADO");
+        operacionRepository.guardar(guardada);
+        
+        var actualizada = operacionRepository.buscarTodas().stream().findFirst().get();
+        assertEquals("DIGITALIZADO", actualizada.getEstado());
+        assertNull(actualizada.getBoletaDigitalId());
     }
 }

@@ -15,9 +15,11 @@ public class DineroUtilTest {
         assertEquals(new BigDecimal("15000.50"), DineroUtil.parsearMontoArs("$ 15.000,50"));
         assertEquals(new BigDecimal("15000.50"), DineroUtil.parsearMontoArs("  15000.50  "));
         
-        // Single dot treated as decimal
-        assertEquals(new BigDecimal("15.000"), DineroUtil.parsearMontoArs("15.000"));
+        // Single dot treated as thousands separator if exactly 3 digits follow
+        assertEquals(new BigDecimal("15000"), DineroUtil.parsearMontoArs("15.000"));
+        // Single dot treated as decimal if 1 or 2 digits follow
         assertEquals(new BigDecimal("1.50"), DineroUtil.parsearMontoArs("1.50"));
+        assertEquals(new BigDecimal("1.5"), DineroUtil.parsearMontoArs("1.5"));
     }
 
     @Test
@@ -35,5 +37,9 @@ public class DineroUtilTest {
         
         // Two commas
         assertThrows(IllegalArgumentException.class, () -> DineroUtil.parsearMontoArs("15,000,50"));
+        
+        // More than 2 decimals
+        assertThrows(IllegalArgumentException.class, () -> DineroUtil.parsearMontoArs("15.5000"));
+        assertThrows(IllegalArgumentException.class, () -> DineroUtil.parsearMontoArs("15,500"));
     }
 }

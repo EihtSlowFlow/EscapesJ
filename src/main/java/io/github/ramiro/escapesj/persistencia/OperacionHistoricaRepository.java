@@ -124,7 +124,10 @@ public class OperacionHistoricaRepository {
             ps.setString(10, op.getActualizadoEn());
             ps.setInt(11, op.getId());
 
-            ps.executeUpdate();
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                throw new PersistenceException("No se encontró la operación histórica a actualizar");
+            }
         } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error al actualizar operación histórica", e);
@@ -198,7 +201,10 @@ public class OperacionHistoricaRepository {
         try (Connection conn = DatabaseService.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
-            ps.executeUpdate();
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                throw new PersistenceException("No se encontró la operación histórica a eliminar");
+            }
         } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error al eliminar operación histórica", e);

@@ -118,6 +118,8 @@ public class VentanaOperacionesHistoricas extends JFrame {
             JOptionPane.showMessageDialog(this, "La fecha debe tener el formato YYYY-MM-DD.");
         } catch (IllegalArgumentException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de formato", JOptionPane.ERROR_MESSAGE);
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "guardar registro", ex);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error al guardar: " + ex.getMessage());
         }

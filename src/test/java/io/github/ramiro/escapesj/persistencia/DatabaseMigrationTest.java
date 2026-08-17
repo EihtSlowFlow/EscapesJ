@@ -368,6 +368,8 @@ public class DatabaseMigrationTest {
         try (Connection conn = getTestConnection();
              Statement stmt = conn.createStatement()) {
             
+            stmt.execute("PRAGMA foreign_keys = ON;");
+            
             // Insertar boleta digital
             stmt.execute("INSERT INTO boletas (id, numero, dni, fecha) VALUES (1, 200, '111', '2023-01-01')");
             

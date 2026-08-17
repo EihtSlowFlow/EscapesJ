@@ -13,7 +13,7 @@ public class VentanaRentabilidadMensual extends JFrame {
     private final RentabilidadService rentabilidadService;
     private JComboBox<Integer> comboMes;
     private JSpinner spinnerAnio;
-    private JLabel lblFacturacionConCostos, lblCostoConocido, lblGanancia, lblFacturacionSinCostos;
+    private JLabel lblFacturacionConCostos, lblCostoConocido, lblGanancia, lblFacturacionSinCostos, lblFacturacionTotal;
     private JLabel lblMargen, lblCantCompletas, lblCantIncompletas, lblEstadoParcial;
     
     private JTable tablaDetalles;
@@ -63,10 +63,11 @@ public class VentanaRentabilidadMensual extends JFrame {
         JPanel pnlCentro = new JPanel(new BorderLayout(10, 10));
         pnlCentro.setBackground(new Color(0, 43, 91));
         
-        JPanel pnlResultados = new JPanel(new GridLayout(9, 1, 10, 10));
+        JPanel pnlResultados = new JPanel(new GridLayout(10, 1, 10, 10));
         pnlResultados.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         pnlResultados.setBackground(new Color(0, 43, 91));
 
+        lblFacturacionTotal = crearLabelRes("");
         lblFacturacionConCostos = crearLabelRes("");
         lblCostoConocido = crearLabelRes("");
         lblGanancia = crearLabelRes("");
@@ -79,6 +80,7 @@ public class VentanaRentabilidadMensual extends JFrame {
         lblEstadoParcial.setFont(new Font("SansSerif", Font.BOLD, 14));
 
         pnlResultados.add(lblEstadoParcial);
+        pnlResultados.add(lblFacturacionTotal);
         pnlResultados.add(lblFacturacionConCostos);
         pnlResultados.add(lblCostoConocido);
         pnlResultados.add(lblGanancia);
@@ -127,6 +129,7 @@ public class VentanaRentabilidadMensual extends JFrame {
         try {
             ultimoResumen = rentabilidadService.calcularResumenMensual(anio, mes);
             
+            lblFacturacionTotal.setText("Facturación Total del Mes: $" + String.format("%,.2f", ultimoResumen.getFacturacionTotal()));
             lblFacturacionConCostos.setText("Facturación (Ops. Completas): $" + String.format("%,.2f", ultimoResumen.facturacionConCostos()));
             lblCostoConocido.setText("Costo de Materiales (Ops. Completas): $" + String.format("%,.2f", ultimoResumen.costoConocido()));
             lblGanancia.setText("Ganancia Calculable: $" + String.format("%,.2f", ultimoResumen.gananciaCalculable()));

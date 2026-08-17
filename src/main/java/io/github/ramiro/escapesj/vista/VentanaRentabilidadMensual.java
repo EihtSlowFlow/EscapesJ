@@ -27,9 +27,13 @@ public class VentanaRentabilidadMensual extends JFrame {
         JPanel pnlFiltro = new JPanel(new FlowLayout());
         pnlFiltro.setBackground(new Color(30, 35, 48));
         
-        Integer[] anios = {2024, 2025, 2026, 2027, 2028};
+        int currentYear = LocalDate.now().getYear();
+        Integer[] anios = new Integer[currentYear + 5 - 2020 + 1];
+        for (int i = 0; i < anios.length; i++) {
+            anios[i] = 2020 + i;
+        }
         comboAnio = new JComboBox<>(anios);
-        comboAnio.setSelectedItem(LocalDate.now().getYear());
+        comboAnio.setSelectedItem(currentYear);
         
         Integer[] meses = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
         comboMes = new JComboBox<>(meses);
@@ -91,6 +95,7 @@ public class VentanaRentabilidadMensual extends JFrame {
 
             if (resumen.tieneResultadosParciales()) {
                 lblEstadoParcial.setText("⚠️ RESULTADO PARCIAL: Hay operaciones sin costos conocidos.");
+                lblEstadoParcial.setForeground(new Color(241, 196, 15));
             } else {
                 lblEstadoParcial.setText("✅ RESULTADO COMPLETO");
                 lblEstadoParcial.setForeground(new Color(46, 204, 113));

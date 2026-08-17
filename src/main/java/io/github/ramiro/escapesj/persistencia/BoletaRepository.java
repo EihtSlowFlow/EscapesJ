@@ -139,6 +139,38 @@ public class BoletaRepository {
         return lista;
     }
 
+    public java.util.Optional<BoletaResumen> buscarBoletaPorNumero(int numero) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            return buscarBoletaPorNumero(conn, numero);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boleta", e);
+        }
+    }
+
+    public java.util.Optional<BoletaResumen> buscarBoletaPorNumero(Connection txConn, int numero) {
+        String sql = "SELECT * FROM boletas WHERE numero = ?";
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
+            pstmt.setInt(1, numero);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return java.util.Optional.of(new BoletaResumen(
+                            rs.getInt("id"),
+                            rs.getInt("numero"),
+                            rs.getString("dni"),
+                            rs.getString("nombre_cliente"),
+                            rs.getString("fecha"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("total"))
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boleta", e);
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<BoletaResumen> obtenerBoletasPorRango(Connection txConn, String fechaInicio, String fechaFin) {
         List<BoletaResumen> lista = new ArrayList<>();
         String sql = "SELECT * FROM boletas WHERE fecha >= ? AND fecha < ? ORDER BY fecha ASC";

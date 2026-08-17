@@ -67,22 +67,30 @@ public class DialogoOperacionHistorica extends JDialog {
     }
 
     private void vincularBoleta() {
-        String input = JOptionPane.showInputDialog(this, "Ingrese el ID de la Boleta Digital para vincular:");
+        String input = JOptionPane.showInputDialog(this, "Ingrese el NÚMERO de la Boleta Digital para vincular:");
         if (input != null && !input.isEmpty()) {
             try {
-                int boletaId = Integer.parseInt(input);
+                int boletaNumero = Integer.parseInt(input);
+                var boletaOpt = boletaRepo.buscarBoletaPorNumero(boletaNumero);
+                
+                if (boletaOpt.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "No se encontró ninguna boleta con el número " + boletaNumero);
+                    return;
+                }
+                
+                int boletaId = boletaOpt.get().id();
+                
                 try (java.sql.Connection conn = io.github.ramiro.escapesj.persistencia.DatabaseService.getConnection()) {
                     var items = boletaRepo.obtenerItems(conn, boletaId);
                 }
-                // Aquí solo marcamos como digitalizado y asociamos el boleta_id.
-                // Podría agregarse validación extra, pero confiamos en la clave foránea.
+                
                 op.setBoletaDigitalId(boletaId);
                 op.setEstado("DIGITALIZADO");
                 repo.guardar(op);
-                JOptionPane.showMessageDialog(this, "Vinculado correctamente.");
+                JOptionPane.showMessageDialog(this, "Vinculado correctamente a la Boleta #" + boletaNumero);
                 dispose();
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "ID inválido.");
+                JOptionPane.showMessageDialog(this, "Número inválido.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             }

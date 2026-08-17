@@ -35,7 +35,7 @@ public class DatabaseMigrationTest {
     }
 
     private Connection getTestConnection() throws Exception {
-        return DriverManager.getConnection(dbUrl);
+        return DatabaseService.getConnection();
     }
 
     private void prepareSchemaMigrationsTable(Connection conn) throws Exception {
@@ -76,6 +76,10 @@ public class DatabaseMigrationTest {
                 assertEquals(2, rs.getInt(1));
                 assertTrue(rs.next());
                 assertEquals(3, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(5, rs.getInt(1));
                 assertFalse(rs.next());
             }
         }
@@ -118,7 +122,7 @@ public class DatabaseMigrationTest {
              Statement stmt = conn.createStatement();
              java.sql.ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM schema_migrations")) {
             rs.next();
-            assertEquals(3, rs.getInt(1), "Solo deben haber 3 migraciones registradas");
+            assertEquals(5, rs.getInt(1), "Solo deben haber 5 migraciones registradas");
         }
     }
 
@@ -316,4 +320,72 @@ public class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    public void testMigracion5RespetaLegacyCosts() throws Exception {
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement()) {
+            
+            stmt.execute("CREATE TABLE productos (codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, descripcion TEXT NOT NULL, precio INTEGER NOT NULL, stock INTEGER NOT NULL DEFAULT 0)");
+            stmt.execute("CREATE TABLE boletas (id INTEGER PRIMARY KEY AUTOINCREMENT, numero INTEGER NOT NULL UNIQUE, dni VARCHAR(20) NOT NULL, nombre_cliente VARCHAR(100), fecha VARCHAR(20) NOT NULL, total INTEGER NOT NULL DEFAULT 0)");
+            stmt.execute("CREATE TABLE boleta_items (id INTEGER PRIMARY KEY AUTOINCREMENT, boleta_id INTEGER NOT NULL, tipo VARCHAR(10) NOT NULL, descripcion TEXT NOT NULL, codigo_producto VARCHAR(50), cantidad INTEGER NOT NULL DEFAULT 1, precio_unitario INTEGER NOT NULL DEFAULT 0, subtotal INTEGER NOT NULL DEFAULT 0)");
+            prepareSchemaMigrationsTable(conn);
+            
+            stmt.execute("INSERT INTO boletas (id, numero, dni, fecha) VALUES (1, 100, '123', '2023-01-01')");
+            
+            // 1. Producto sin costo -> conservará NULL
+            stmt.execute("INSERT INTO boleta_items (id, boleta_id, tipo, descripcion) VALUES (1, 1, 'PRODUCTO', 'P1')");
+            // 2. Servicio sin costo -> pasará a 0
+            stmt.execute("INSERT INTO boleta_items (id, boleta_id, tipo, descripcion) VALUES (2, 1, 'SERVICIO', 'S1')");
+        }
+
+        DatabaseService.inicializar();
+        
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement()) {
+            
+            // Forzamos un update directo para simular "costo conocido o cero" antes de aplicar la 5 (porque la init aplica todas).
+            // Espera, inicializar() ya aplicó la 4 y la 5. 
+            // Si inserté la data *antes* de inicializar, la 4 le puso NULL a costo_unitario_historico_centavos.
+            // Luego la 5 lo actualizó a 0 solo si era SERVICIO.
+            
+            try (java.sql.ResultSet rs = stmt.executeQuery("SELECT id, costo_unitario_historico_centavos FROM boleta_items ORDER BY id")) {
+                assertTrue(rs.next());
+                assertEquals(1, rs.getInt("id"));
+                rs.getInt("costo_unitario_historico_centavos");
+                assertTrue(rs.wasNull());
+                
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt("id"));
+                assertEquals(0, rs.getInt("costo_unitario_historico_centavos"));
+            }
+        }
+    }
+
+    @Test
+    public void testOnDeleteSetNullOperacionesHistoricas() throws Exception {
+        DatabaseService.inicializar(); // Crea las tablas y aplica pragma foreign_keys = ON
+
+        try (Connection conn = getTestConnection();
+             Statement stmt = conn.createStatement()) {
+            
+            stmt.execute("PRAGMA foreign_keys = ON;");
+            
+            // Insertar boleta digital
+            stmt.execute("INSERT INTO boletas (id, numero, dni, fecha) VALUES (1, 200, '111', '2023-01-01')");
+            
+            // Insertar operación vinculada
+            stmt.execute("INSERT INTO operaciones_historicas (fecha, descripcion, importe_total_centavos, estado, boleta_digital_id, creado_en, actualizado_en) " +
+                    "VALUES ('2023-01-01', 'Test', 1000, 'DIGITALIZADO', 1, 'now', 'now')");
+            
+            // Eliminar la boleta digital
+            stmt.execute("DELETE FROM boletas WHERE id = 1");
+            
+            // Verificar que boleta_digital_id se puso en NULL
+            try (java.sql.ResultSet rs = stmt.executeQuery("SELECT boleta_digital_id FROM operaciones_historicas")) {
+                assertTrue(rs.next());
+                rs.getInt("boleta_digital_id");
+                assertTrue(rs.wasNull());
+            }
+        }
+    }
 }

@@ -6,14 +6,20 @@ import java.util.function.Consumer;
 public class Producto {
     private String codigo, nombre, descripcion;
     private BigDecimal precio;
+    private BigDecimal costoUnitario;
     private int stock;
 
     public Producto(String codigo, String nombre, String descripcion, BigDecimal precio, int stock) {
+        this(codigo, nombre, descripcion, precio, stock, null);
+    }
+
+    public Producto(String codigo, String nombre, String descripcion, BigDecimal precio, int stock, BigDecimal costoUnitario) {
         this.codigo = codigo;
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.precio = precio;
         this.stock = stock;
+        this.costoUnitario = costoUnitario;
     }
 
     public String getCodigo() {
@@ -30,6 +36,10 @@ public class Producto {
 
     public BigDecimal getPrecio() {
         return precio;
+    }
+
+    public BigDecimal getCostoUnitario() {
+        return costoUnitario;
     }
 
     public int getStock() {

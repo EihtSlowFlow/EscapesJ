@@ -51,7 +51,8 @@ public class VentanaGestionInventario extends JFrame {
         scrollTabla.setBorder(BorderFactory.createEmptyBorder());
         // 2. PANEL DERECHO: EXCLUSIVO PARA NUEVOS
         JPanel pnlNuevo = new JPanel(new GridBagLayout());
-        pnlNuevo.setOpaque(false);
+        pnlNuevo.setOpaque(true);
+        pnlNuevo.setBackground(new Color(0, 43, 91));
         pnlNuevo.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.CYAN), "CARGAR NUEVO PRODUCTO", 0, 0, null, Color.CYAN));
 
@@ -74,11 +75,16 @@ public class VentanaGestionInventario extends JFrame {
         pnlNuevo.add(btnGuardar, gbc);
 
         JScrollPane scrollNuevo = new JScrollPane(pnlNuevo);
+        scrollNuevo.setOpaque(true);
+        scrollNuevo.setBackground(new Color(0, 43, 91));
+        scrollNuevo.getViewport().setOpaque(true);
+        scrollNuevo.getViewport().setBackground(new Color(0, 43, 91));
         scrollNuevo.setBorder(null);
         scrollNuevo.setPreferredSize(new Dimension(350, 0));
         scrollNuevo.getVerticalScrollBar().setUnitIncrement(16);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollTabla, scrollNuevo);
+        splitPane.setBackground(new Color(0, 43, 91));
         splitPane.setBorder(null);
         splitPane.setResizeWeight(0.75);
         SwingUtilities.invokeLater(() -> splitPane.setDividerLocation(0.75));

@@ -13,8 +13,13 @@ import java.math.RoundingMode;
 import java.net.URL;
 import java.util.List;
 
-/** Genera boletas en PDF A4 listas para imprimir. */
+/** Genera boletas en formato ticket listas para imprimir. */
 public class BoletaPdfService {
+
+    private static final float ANCHO_BOLETA = PageSize.A5.getWidth();
+    private static final float ALTURA_MAXIMA = PageSize.A4.getHeight();
+    private static final float MARGEN_HORIZONTAL = 18f;
+    private static final float MARGEN_VERTICAL = 14f;
 
     /**
      * @param metodoPago       "EFECTIVO" o "TRANSFERENCIA"
@@ -38,7 +43,11 @@ public class BoletaPdfService {
         String fileName = String.format("Boleta_%04d_%s.pdf", numeroBoleta, fechaLocal.replace("/", "-"));
         String filePath = new java.io.File(dir, fileName).getAbsolutePath();
 
-        Document document = new Document(PageSize.A4, 28, 28, 24, 24);
+        float alturaTicket = calcularAlturaReal(items, nombreCliente, dniCliente, emisor,
+                subtotal, metodoPago, descuentoPorcentaje, numeroBoleta, fechaLocal);
+        Document document = new Document(
+                new Rectangle(ANCHO_BOLETA, Math.min(alturaTicket, ALTURA_MAXIMA)),
+                MARGEN_HORIZONTAL, MARGEN_HORIZONTAL, MARGEN_VERTICAL, MARGEN_VERTICAL);
 
         try {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
@@ -59,7 +68,7 @@ public class BoletaPdfService {
             // ── CABECERA: Logo + Emisor + Número/fecha ──
             PdfPTable header = new PdfPTable(3);
             header.setWidthPercentage(100);
-            header.setWidths(new float[]{1.1f, 3.5f, 1.7f});
+            header.setWidths(new float[]{25f, 45f, 30f});
             header.setSpacingAfter(8f);
 
             PdfPCell cellLogo = cellSinBorde();
@@ -68,7 +77,7 @@ public class BoletaPdfService {
 
             PdfPCell cellEmisor = cellSinBorde();
             if (emisor != null) {
-                cellEmisor.addElement(new Paragraph(emisor.nombre(), fTitle));
+                cellEmisor.addElement(new Paragraph("Emisor: " + emisor.nombre(), fBody8));
                 cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
                 cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
                 if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
@@ -185,12 +194,101 @@ public class BoletaPdfService {
         }
     }
 
+    private static float calcularAlturaReal(List<BoletaItem> items, String nombreCliente,
+                                             String dniCliente, Emisor emisor,
+                                             BigDecimal subtotal, String metodoPago,
+                                             BigDecimal descuentoPorcentaje,
+                                             int numeroBoleta, String fechaLocal) {
+        Font bold = new Font(Font.HELVETICA, 9, Font.BOLD);
+        Font body = new Font(Font.HELVETICA, 8, Font.NORMAL);
+        Font tiny = new Font(Font.HELVETICA, 6, Font.NORMAL);
+        Font totalFont = new Font(Font.HELVETICA, 10, Font.BOLD);
+        float anchoUtil = ANCHO_BOLETA - (MARGEN_HORIZONTAL * 2);
+
+        PdfPTable aviso = new PdfPTable(1);
+        aviso.addCell(celdaMedicion("DOCUMENTO NO VÁLIDO COMO FACTURA", tiny));
+
+        PdfPTable header = new PdfPTable(new float[]{25f, 45f, 30f});
+        PdfPCell logo = cellSinBorde();
+        agregarLogo(logo, bold);
+        header.addCell(logo);
+        PdfPCell datos = cellSinBorde();
+        if (emisor != null) {
+            datos.addElement(new Paragraph("Emisor: " + emisor.nombre(), body));
+            datos.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), body));
+            datos.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), body));
+            if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                datos.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), body));
+            }
+        }
+        header.addCell(datos);
+        PdfPCell numero = cellSinBorde();
+        numero.addElement(new Paragraph(String.format("0001-%08d", numeroBoleta), bold));
+        numero.addElement(new Paragraph(fechaLocal, body));
+        header.addCell(numero);
+
+        PdfPTable cliente = new PdfPTable(1);
+        cliente.addCell(celdaMedicion("Cliente: " + nombreCliente + "\nDNI: " + dniCliente, body));
+
+        PdfPTable tablaItems = new PdfPTable(new float[]{3.5f, 0.8f, 1.3f, 1.3f});
+        for (String texto : new String[]{"Descripción", "Cant.", "Precio", "Importe"}) {
+            PdfPCell celda = new PdfPCell(new Paragraph(texto, bold));
+            celda.setPadding(2f);
+            tablaItems.addCell(celda);
+        }
+        for (BoletaItem item : items) {
+            tablaItems.addCell(celda(item.descripcion(), body));
+            tablaItems.addCell(celda(String.valueOf(item.cantidad()), body));
+            tablaItems.addCell(celda(String.format("$%,.2f", item.precioUnitario()), body));
+            tablaItems.addCell(celda(String.format("$%,.2f", item.subtotal()), body));
+        }
+
+        boolean efectivo = "EFECTIVO".equalsIgnoreCase(metodoPago);
+        BigDecimal descuento = efectivo
+                ? io.github.ramiro.escapesj.sdk.DineroUtil.redondearMoneda(subtotal.multiply(descuentoPorcentaje).divide(new BigDecimal("100"), 10, RoundingMode.HALF_UP))
+                : BigDecimal.ZERO;
+        BigDecimal total = subtotal.subtract(descuento);
+        PdfPTable totales = new PdfPTable(1);
+        PdfPCell bloque = cellSinBorde();
+        bloque.addElement(new Paragraph(String.format("Subtotal: $%,.2f", subtotal), body));
+        if (efectivo && descuento.signum() > 0) {
+            bloque.addElement(new Paragraph(String.format("DTO: -%s%% = -$%,.2f", descuentoPorcentaje, descuento), body));
+        }
+        bloque.addElement(new Paragraph(String.format("TOTAL: $%,.2f", total), totalFont));
+        if (efectivo && descuento.signum() > 0) {
+            bloque.addElement(new Paragraph(String.format("EFECTIVO: $%,.2f", total), bold));
+        }
+        bloque.addElement(new Paragraph(efectivo
+                ? "Cond. Venta: Contado (Efectivo)"
+                : "Cond. Venta: Contado (Transferencia)", body));
+        totales.addCell(bloque);
+
+        float contenido = medir(aviso, anchoUtil) + medir(header, anchoUtil)
+                + medir(cliente, anchoUtil) + medir(tablaItems, anchoUtil)
+                + medir(totales, anchoUtil);
+        return Math.max(300f, contenido + (MARGEN_VERTICAL * 2) + 45f);
+    }
+
+    private static PdfPCell celdaMedicion(String texto, Font font) {
+        PdfPCell celda = new PdfPCell(new Paragraph(texto, font));
+        celda.setBorder(Rectangle.NO_BORDER);
+        celda.setPadding(1f);
+        return celda;
+    }
+
+    private static float medir(PdfPTable tabla, float ancho) {
+        tabla.setTotalWidth(ancho);
+        tabla.setLockedWidth(true);
+        tabla.calculateHeights(true);
+        return tabla.getTotalHeight();
+    }
+
     private static void agregarLogo(PdfPCell cell, Font fallbackFont) {
         try {
             URL logoUrl = BoletaPdfService.class.getResource("/Logo.png");
             if (logoUrl != null) {
                 Image logo = Image.getInstance(logoUrl);
-                logo.scaleToFit(60, 60);
+                logo.scaleToFit(65, 65);
                 cell.addElement(logo);
                 return;
             }

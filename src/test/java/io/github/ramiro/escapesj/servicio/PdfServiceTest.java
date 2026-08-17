@@ -50,7 +50,7 @@ class PdfServiceTest {
     }
 
     @Test
-    void generaBoletaRepresentativaA4EnUnaPaginaConLogoYPieCompleto() throws Exception {
+    void generaBoletaRepresentativaComoTicketCortoConLogoYPieCompleto() throws Exception {
         List<BoletaItem> items = List.of(
                 item("Silenciador", "1000.00"),
                 item("Colocación", "500.00"),
@@ -65,10 +65,12 @@ class PdfServiceTest {
         try {
             assertEquals(1, reader.getNumberOfPages());
             Rectangle pagina = reader.getPageSize(1);
-            assertEquals(PageSize.A4.getWidth(), pagina.getWidth(), 0.1f);
-            assertEquals(PageSize.A4.getHeight(), pagina.getHeight(), 0.1f);
+            assertEquals(PageSize.A5.getWidth(), pagina.getWidth(), 0.1f);
+            assertTrue(pagina.getHeight() < 150f * 72f / 25.4f,
+                    "El ticket corto no debe desperdiciar una hoja completa: " + pagina.getHeight());
 
             String primeraPagina = new PdfTextExtractor(reader).getTextFromPage(1);
+            assertTrue(primeraPagina.contains("Emisor: Escapes del Sur"), primeraPagina);
             assertTrue(primeraPagina.contains("EFECTIVO"), primeraPagina);
             assertTrue(primeraPagina.contains("Cond. Venta"), primeraPagina);
             assertTrue(contieneImagen(reader), "La boleta debe incluir Logo.png como recurso de imagen");
@@ -78,7 +80,7 @@ class PdfServiceTest {
     }
 
     @Test
-    void divideBoletaConMuchosItemsEnPaginasA4() throws Exception {
+    void divideBoletaConMuchosItemsEnPaginasDeAnchoTicket() throws Exception {
         List<BoletaItem> items = IntStream.rangeClosed(1, 100)
                 .mapToObj(numero -> item("Repuesto " + numero, "100.00"))
                 .toList();
@@ -93,7 +95,7 @@ class PdfServiceTest {
             assertTrue(reader.getNumberOfPages() > 1);
             for (int pagina = 1; pagina <= reader.getNumberOfPages(); pagina++) {
                 Rectangle tamanio = reader.getPageSize(pagina);
-                assertEquals(PageSize.A4.getWidth(), tamanio.getWidth(), 0.1f);
+                assertEquals(PageSize.A5.getWidth(), tamanio.getWidth(), 0.1f);
                 assertEquals(PageSize.A4.getHeight(), tamanio.getHeight(), 0.1f);
             }
             String ultimaPagina = new PdfTextExtractor(reader).getTextFromPage(reader.getNumberOfPages());
@@ -102,6 +104,42 @@ class PdfServiceTest {
             assertTrue(ultimaPagina.contains("Cond. Venta"), ultimaPagina);
         } finally {
             reader.close();
+        }
+    }
+
+    @Test
+    void adaptaElLargoParaUnoTresDiezYTreintaItems() throws Exception {
+        int[] cantidades = {1, 3, 10, 30};
+        float alturaAnterior = 0f;
+
+        for (int cantidad : cantidades) {
+            List<BoletaItem> items = IntStream.rangeClosed(1, cantidad)
+                    .mapToObj(numero -> item(
+                            "Producto " + numero + " con descripción de longitud representativa", "100.00"))
+                    .toList();
+
+            Path pdf = Path.of(BoletaPdfService.generarPdf(
+                    100 + cantidad, "2026-08-17", "12345678", "Cliente",
+                    items, new BigDecimal(cantidad * 100 + ".00"),
+                    "TRANSFERENCIA", BigDecimal.ZERO, tempDir.toString(), emisor));
+
+            PdfReader reader = new PdfReader(pdf.toString());
+            try {
+                assertEquals(1, reader.getNumberOfPages(), "Cantidad de ítems: " + cantidad);
+                Rectangle pagina = reader.getPageSize(1);
+                assertEquals(PageSize.A5.getWidth(), pagina.getWidth(), 0.1f);
+                assertTrue(pagina.getHeight() >= alturaAnterior,
+                        "La altura no debe disminuir al agregar ítems: " + cantidad);
+                assertTrue(pagina.getHeight() <= PageSize.A4.getHeight());
+
+                String texto = new PdfTextExtractor(reader).getTextFromPage(1);
+                assertTrue(texto.contains("Producto " + cantidad), texto);
+                assertTrue(texto.contains("TOTAL"), texto);
+                assertTrue(texto.contains("Cond. Venta"), texto);
+                alturaAnterior = pagina.getHeight();
+            } finally {
+                reader.close();
+            }
         }
     }
 
@@ -125,9 +163,11 @@ class PdfServiceTest {
 
         PdfReader reader = new PdfReader(pdf.toString());
         try {
+            assertEquals(1, reader.getNumberOfPages());
             Rectangle pagina = reader.getPageSize(1);
-            assertEquals(PageSize.A4.getWidth(), pagina.getWidth(), 0.1f);
-            assertEquals(PageSize.A4.getHeight(), pagina.getHeight(), 0.1f);
+            assertEquals(PageSize.A5.getWidth(), pagina.getWidth(), 0.1f);
+            assertTrue(pagina.getHeight() < PageSize.A4.getHeight(),
+                    "El presupuesto corto debe ajustar su altura al contenido");
             assertTrue(contieneImagen(reader), "El presupuesto debe incluir Logo.png");
         } finally {
             reader.close();

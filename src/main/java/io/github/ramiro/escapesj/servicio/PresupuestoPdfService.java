@@ -16,6 +16,11 @@ import java.util.List;
  */
 public class PresupuestoPdfService {
 
+    private static final float ANCHO_DOCUMENTO = PageSize.A5.getWidth();
+    private static final float ALTURA_MAXIMA = PageSize.A4.getHeight();
+    private static final float MARGEN_HORIZONTAL = 15f;
+    private static final float MARGEN_VERTICAL = 12f;
+
     public record ItemPresupuesto(String descripcion, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
 
     public static String generarPdf(String codigoUnico, String fechaEmision, String fechaLimite,
@@ -35,7 +40,11 @@ public class PresupuestoPdfService {
                 codigoUnico, fechaEmisionLocal.replace("/", "-"));
         String filePath = new File(dir, fileName).getAbsolutePath();
 
-        Document document = new Document(PageSize.A4, 28, 28, 24, 24);
+        float altura = calcularAlturaReal(codigoUnico, fechaEmisionLocal, fechaLimite,
+                dniCliente, nombreCliente, items, totalEstimado, emisor);
+        Rectangle hoja = new Rectangle(ANCHO_DOCUMENTO, Math.min(altura, ALTURA_MAXIMA));
+        Document document = new Document(hoja, MARGEN_HORIZONTAL, MARGEN_HORIZONTAL,
+                MARGEN_VERTICAL, MARGEN_VERTICAL);
 
         try {
             PdfWriter.getInstance(document, new FileOutputStream(filePath));
@@ -57,7 +66,7 @@ public class PresupuestoPdfService {
             // ── CABECERA: Logo + Emisor + Código/fecha ──
             PdfPTable header = new PdfPTable(3);
             header.setWidthPercentage(100);
-            header.setWidths(new float[]{1.1f, 3.5f, 1.7f});
+            header.setWidths(new float[]{25f, 45f, 30f});
             header.setSpacingAfter(8f);
 
             PdfPCell cellLogo = cellSinBorde();
@@ -66,7 +75,7 @@ public class PresupuestoPdfService {
 
             PdfPCell cellEmisor = cellSinBorde();
             if (emisor != null) {
-                cellEmisor.addElement(new Paragraph(emisor.nombre(), fTitle));
+                cellEmisor.addElement(new Paragraph("Emisor: " + emisor.nombre(), fBody8));
                 cellEmisor.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), fBody8));
                 cellEmisor.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), fBody8));
                 if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
@@ -154,12 +163,92 @@ public class PresupuestoPdfService {
         }
     }
 
+    private static float calcularAlturaReal(String codigoUnico, String fechaEmisionLocal,
+                                             String fechaLimite, String dniCliente,
+                                             String nombreCliente, List<ItemPresupuesto> items,
+                                             BigDecimal totalEstimado,
+                                             io.github.ramiro.escapesj.modelo.Emisor emisor) {
+        Font bold = new Font(Font.HELVETICA, 9, Font.BOLD);
+        Font body = new Font(Font.HELVETICA, 8, Font.NORMAL);
+        Font title = new Font(Font.HELVETICA, 11, Font.BOLD);
+        Font tiny = new Font(Font.HELVETICA, 6, Font.NORMAL);
+        Font totalFont = new Font(Font.HELVETICA, 10, Font.BOLD);
+        Font code = new Font(Font.COURIER, 10, Font.BOLD);
+        float anchoUtil = ANCHO_DOCUMENTO - (MARGEN_HORIZONTAL * 2);
+
+        PdfPTable titulo = new PdfPTable(1);
+        titulo.addCell(celdaMedicion("PRESUPUESTO", title));
+
+        PdfPTable header = new PdfPTable(new float[]{25f, 45f, 30f});
+        PdfPCell logo = cellSinBorde();
+        agregarLogo(logo, title);
+        header.addCell(logo);
+        PdfPCell datos = cellSinBorde();
+        if (emisor != null) {
+            datos.addElement(new Paragraph("Emisor: " + emisor.nombre(), body));
+            datos.addElement(new Paragraph("CUIT Emisor: " + emisor.cuit(), body));
+            datos.addElement(new Paragraph("Lugar Emisión: " + (emisor.calle() != null ? emisor.calle() : "Viedma, Rio Negro"), body));
+            if (emisor.telefono() != null && !emisor.telefono().isEmpty()) {
+                datos.addElement(new Paragraph("Teléfono Atención: " + emisor.telefono(), body));
+            }
+        }
+        header.addCell(datos);
+        PdfPCell info = cellSinBorde();
+        info.addElement(new Paragraph("Código: " + codigoUnico, code));
+        info.addElement(new Paragraph("Fecha: " + fechaEmisionLocal, body));
+        header.addCell(info);
+
+        PdfPTable cliente = new PdfPTable(1);
+        cliente.addCell(celdaMedicion("Cliente: " + nombreCliente + "\nDNI: " + dniCliente, body));
+
+        PdfPTable tablaItems = new PdfPTable(new float[]{3.5f, 0.8f, 1.3f, 1.3f});
+        for (String texto : new String[]{"Descripción", "Cant.", "Precio", "Importe"}) {
+            PdfPCell celda = new PdfPCell(new Paragraph(texto, bold));
+            celda.setPadding(2f);
+            tablaItems.addCell(celda);
+        }
+        for (ItemPresupuesto item : items) {
+            tablaItems.addCell(celda(item.descripcion(), body));
+            tablaItems.addCell(celda(String.valueOf(item.cantidad()), body));
+            tablaItems.addCell(celda(String.format("$%,.2f", item.precioUnitario()), body));
+            tablaItems.addCell(celda(String.format("$%,.2f", item.subtotal()), body));
+        }
+
+        PdfPTable pie = new PdfPTable(1);
+        PdfPCell bloque = cellSinBorde();
+        bloque.addElement(new Paragraph(String.format("TOTAL ESTIMADO: $%,.2f", totalEstimado), totalFont));
+        bloque.addElement(new Paragraph("Presupuesto válido hasta: "
+                + io.github.ramiro.escapesj.sdk.DateUtil.formatoLocal(fechaLimite), bold));
+        bloque.addElement(new Paragraph("Este presupuesto garantiza el precio indicado hasta la fecha de validez. "
+                + "Pasada dicha fecha, el monto podrá ser actualizado.", tiny));
+        bloque.addElement(new Paragraph("Código de verificación: " + codigoUnico, body));
+        pie.addCell(bloque);
+
+        float contenido = medir(titulo, anchoUtil) + medir(header, anchoUtil)
+                + medir(cliente, anchoUtil) + medir(tablaItems, anchoUtil) + medir(pie, anchoUtil);
+        return Math.max(340f, contenido + (MARGEN_VERTICAL * 2) + 70f);
+    }
+
+    private static PdfPCell celdaMedicion(String texto, Font font) {
+        PdfPCell celda = new PdfPCell(new Paragraph(texto, font));
+        celda.setBorder(Rectangle.NO_BORDER);
+        celda.setPadding(1f);
+        return celda;
+    }
+
+    private static float medir(PdfPTable tabla, float ancho) {
+        tabla.setTotalWidth(ancho);
+        tabla.setLockedWidth(true);
+        tabla.calculateHeights(true);
+        return tabla.getTotalHeight();
+    }
+
     private static void agregarLogo(PdfPCell cell, Font fallbackFont) {
         try {
             URL logoUrl = PresupuestoPdfService.class.getResource("/Logo.png");
             if (logoUrl != null) {
                 Image logo = Image.getInstance(logoUrl);
-                logo.scaleToFit(60, 60);
+                logo.scaleToFit(65, 65);
                 cell.addElement(logo);
                 return;
             }

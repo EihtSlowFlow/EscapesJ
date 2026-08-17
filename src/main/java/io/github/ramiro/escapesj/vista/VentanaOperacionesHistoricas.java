@@ -91,6 +91,8 @@ public class VentanaOperacionesHistoricas extends JFrame {
     private void registrarNuevo() {
         try {
             String fecha = txtFecha.getText().trim();
+            java.time.LocalDate.parse(fecha); // valida YYYY-MM-DD
+            
             String ref = txtRef.getText().trim();
             String cliente = txtCliente.getText().trim();
             String desc = txtDesc.getText().trim();
@@ -110,6 +112,8 @@ public class VentanaOperacionesHistoricas extends JFrame {
             actualizarTabla();
             limpiarCampos();
             JOptionPane.showMessageDialog(this, "Registro guardado correctamente.");
+        } catch (java.time.format.DateTimeParseException ex) {
+            JOptionPane.showMessageDialog(this, "La fecha debe tener el formato YYYY-MM-DD.");
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Verifique los montos numéricos.");
         } catch (Exception ex) {

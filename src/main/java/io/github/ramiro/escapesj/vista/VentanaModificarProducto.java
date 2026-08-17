@@ -62,17 +62,24 @@ public class VentanaModificarProducto extends JDialog {
 
     private void procesarActualizacion() {
         try {
+            java.math.BigDecimal precio = new java.math.BigDecimal(txtPre.getText().trim());
+            if (precio.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El precio no puede ser negativo.");
+
             String costoStr = txtCosto.getText().trim();
             java.math.BigDecimal costo = null;
             if (!costoStr.isEmpty()) {
                 costo = new java.math.BigDecimal(costoStr);
+                if (costo.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El costo no puede ser negativo.");
             }
+            int stock = Integer.parseInt(txtStock.getText().trim());
+            if (stock < 0) throw new IllegalArgumentException("El stock no puede ser negativo.");
+
             Producto nuevo = new Producto(
                     txtCod.getText().trim(),
                     txtNom.getText().trim(),
                     txtDesc.getText().trim(),
-                    new java.math.BigDecimal(txtPre.getText().trim()),
-                    Integer.parseInt(txtStock.getText().trim()),
+                    precio,
+                    stock,
                     costo
             );
             repository.actualizarConCambioDeCodigo(nuevo, productoOriginal.getCodigo());
@@ -80,6 +87,8 @@ public class VentanaModificarProducto extends JDialog {
             dispose();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Verifique los formatos de precio y stock.");
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage());
         } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
             ErrorHandler.mostrarErrorPersistencia(this, "modificar producto", ex);
         } catch (Exception ex) {

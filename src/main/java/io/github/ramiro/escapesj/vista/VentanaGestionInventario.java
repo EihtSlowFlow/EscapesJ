@@ -94,20 +94,28 @@ public class VentanaGestionInventario extends JFrame {
 
     private void registrarNuevo() {
         try {
+            java.math.BigDecimal precio = new java.math.BigDecimal(txtPre.getText().trim());
+            if (precio.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El precio no puede ser negativo.");
+            
             String costoStr = txtCosto.getText().trim();
             java.math.BigDecimal costo = null;
             if (!costoStr.isEmpty()) {
                 costo = new java.math.BigDecimal(costoStr);
+                if (costo.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El costo no puede ser negativo.");
             }
+            int stock = Integer.parseInt(txtStock.getText().trim());
+            if (stock < 0) throw new IllegalArgumentException("El stock no puede ser negativo.");
+
             Producto p = new Producto(txtCod.getText().trim(), txtNom.getText().trim(),
-                    txtDesc.getText().trim(), new java.math.BigDecimal(txtPre.getText().trim()),
-                    Integer.parseInt(txtStock.getText().trim()), costo);
+                    txtDesc.getText().trim(), precio, stock, costo);
             repository.guardar(p);
             actualizarTabla();
             limpiarCampos();
             JOptionPane.showMessageDialog(this, "Producto registrado con éxito.");
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Verifique los formatos de precio y stock.");
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage());
         } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
             ErrorHandler.mostrarErrorPersistencia(this, "registrar producto", ex);
         } catch (Exception ex) {

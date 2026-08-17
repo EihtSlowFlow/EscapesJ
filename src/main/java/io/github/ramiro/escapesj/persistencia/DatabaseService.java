@@ -67,10 +67,10 @@ public class DatabaseService {
         new Migration(4, "Rentabilidad y operaciones historicas", conn -> {
             try (Statement stmt = conn.createStatement()) {
                 if (!existeColumna(conn, "productos", "costo_unitario_centavos")) {
-                    stmt.execute("ALTER TABLE productos ADD COLUMN costo_unitario_centavos INTEGER DEFAULT NULL");
+                    stmt.execute("ALTER TABLE productos ADD COLUMN costo_unitario_centavos INTEGER DEFAULT NULL CHECK (costo_unitario_centavos IS NULL OR costo_unitario_centavos >= 0)");
                 }
                 if (!existeColumna(conn, "boleta_items", "costo_unitario_historico_centavos")) {
-                    stmt.execute("ALTER TABLE boleta_items ADD COLUMN costo_unitario_historico_centavos INTEGER DEFAULT NULL");
+                    stmt.execute("ALTER TABLE boleta_items ADD COLUMN costo_unitario_historico_centavos INTEGER DEFAULT NULL CHECK (costo_unitario_historico_centavos IS NULL OR costo_unitario_historico_centavos >= 0)");
                 }
             }
         })

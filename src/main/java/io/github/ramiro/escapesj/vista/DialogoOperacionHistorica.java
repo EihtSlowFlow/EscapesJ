@@ -71,7 +71,9 @@ public class DialogoOperacionHistorica extends JDialog {
         if (input != null && !input.isEmpty()) {
             try {
                 int boletaId = Integer.parseInt(input);
-                var items = boletaRepo.obtenerItems(io.github.ramiro.escapesj.persistencia.DatabaseService.getConnection(), boletaId);
+                try (java.sql.Connection conn = io.github.ramiro.escapesj.persistencia.DatabaseService.getConnection()) {
+                    var items = boletaRepo.obtenerItems(conn, boletaId);
+                }
                 // Aquí solo marcamos como digitalizado y asociamos el boleta_id.
                 // Podría agregarse validación extra, pero confiamos en la clave foránea.
                 op.setBoletaDigitalId(boletaId);

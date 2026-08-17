@@ -198,6 +198,25 @@ public class AfipServiceTest {
     }
 
     @Test
+    public void testTodasLasPeticionesIncluyenAccessToken() throws Exception {
+        afipService.buscarClientePorDniAsync("11111111").get(5, TimeUnit.SECONDS);
+
+        List<HttpRequest> authRequests = mockHttpClient.requests.stream()
+                .filter(request -> request.uri().toString().endsWith("/auth"))
+                .toList();
+        List<HttpRequest> apiRequests = mockHttpClient.requests.stream()
+                .filter(request -> request.uri().toString().endsWith("/requests"))
+                .toList();
+
+        assertEquals(1, authRequests.size());
+        assertEquals(2, apiRequests.size());
+        assertEquals("Bearer test-token",
+                authRequests.get(0).headers().firstValue("Authorization").orElse(null));
+        assertTrue(apiRequests.stream().allMatch(request -> "Bearer test-token".equals(
+                request.headers().firstValue("Authorization").orElse(null))));
+    }
+
+    @Test
     public void testBuscarClientePorDniAsync_Concurrency() throws Exception {
         mockHttpClient.slowAuth = true;
 

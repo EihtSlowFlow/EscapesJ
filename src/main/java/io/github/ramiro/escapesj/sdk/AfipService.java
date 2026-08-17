@@ -387,11 +387,9 @@ public class AfipService {
                 .timeout(Duration.ofSeconds(15))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
 
-        if (!url.equals(AFIP_SDK_AUTH_URL)) {
-            String accessToken = configRepo.getAfipAccessToken();
-            if (accessToken != null && !accessToken.isBlank()) {
-                requestBuilder.header("Authorization", "Bearer " + accessToken);
-            }
+        String accessToken = configRepo.getAfipAccessToken();
+        if (accessToken != null && !accessToken.isBlank()) {
+            requestBuilder.header("Authorization", "Bearer " + accessToken);
         }
 
         HttpRequest request = requestBuilder.build();

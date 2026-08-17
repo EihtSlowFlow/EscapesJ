@@ -147,9 +147,10 @@ public class TransactionHelperTest {
         int initialItems = countRows("SELECT COUNT(*) FROM boleta_items");
         int initialServicios = countRows("SELECT COUNT(*) FROM servicios_historial");
 
-        // Romperemos la tabla boleta_items para que lance SQLException durante la facturación (después de restar el stock)
+        // Romperemos la tabla servicios_historial para que lance SQLException al final de la facturación
+        // (después de restar stock, crear boleta y guardar ítems con su costo histórico)
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute("DROP TABLE boleta_items");
+            stmt.execute("DROP TABLE servicios_historial");
         }
 
         FacturacionRequest request = new FacturacionRequest(
@@ -163,13 +164,13 @@ public class TransactionHelperTest {
             facturacionService.facturarOrden(request);
         });
 
-        // Verify that the rollback was successful for the stock deduction
+        // Verify that the rollback was successful
         var productoOpt = productoRepo.buscarPorCodigo("TEST-003");
         assertTrue(productoOpt.isPresent());
         assertEquals(10, productoOpt.get().getStock(), "Stock should be rolled back to 10 after SQL error");
 
-        // And other tables are unchanged
+        // Boleta and Items are unchanged
         assertEquals(initialBoletas, countRows("SELECT COUNT(*) FROM boletas"));
-        assertEquals(initialServicios, countRows("SELECT COUNT(*) FROM servicios_historial"));
+        assertEquals(initialItems, countRows("SELECT COUNT(*) FROM boleta_items"));
     }
 }

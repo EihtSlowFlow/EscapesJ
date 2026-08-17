@@ -94,13 +94,13 @@ public class VentanaGestionInventario extends JFrame {
 
     private void registrarNuevo() {
         try {
-            java.math.BigDecimal precio = new java.math.BigDecimal(txtPre.getText().trim());
+            java.math.BigDecimal precio = io.github.ramiro.escapesj.sdk.DineroUtil.parsearMontoArs(txtPre.getText());
             if (precio.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El precio no puede ser negativo.");
             
             String costoStr = txtCosto.getText().trim();
             java.math.BigDecimal costo = null;
             if (!costoStr.isEmpty()) {
-                costo = new java.math.BigDecimal(costoStr);
+                costo = io.github.ramiro.escapesj.sdk.DineroUtil.parsearMontoArs(costoStr);
                 if (costo.compareTo(java.math.BigDecimal.ZERO) < 0) throw new IllegalArgumentException("El costo no puede ser negativo.");
             }
             int stock = Integer.parseInt(txtStock.getText().trim());

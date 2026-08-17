@@ -132,7 +132,7 @@ public class VentanaRentabilidadMensual extends JFrame {
             lblFacturacionTotal.setText("Facturación Total del Mes: $" + String.format("%,.2f", ultimoResumen.getFacturacionTotal()));
             lblFacturacionConCostos.setText("Facturación (Ops. Completas): $" + String.format("%,.2f", ultimoResumen.facturacionConCostos()));
             lblCostoConocido.setText("Costo de Materiales (Ops. Completas): $" + String.format("%,.2f", ultimoResumen.costoConocido()));
-            lblGanancia.setText("Ganancia Calculable: $" + String.format("%,.2f", ultimoResumen.gananciaCalculable()));
+            lblGanancia.setText("Ganancia bruta calculable: $" + String.format("%,.2f", ultimoResumen.gananciaCalculable()));
             
             if (ultimoResumen.margenPorcentual() != null) {
                 lblMargen.setText("Margen de Ganancia: " + String.format("%,.2f%%", ultimoResumen.margenPorcentual()));

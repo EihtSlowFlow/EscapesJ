@@ -150,8 +150,26 @@ public class BoletaRepository {
 
     public java.util.Optional<BoletaResumen> buscarBoletaPorNumero(Connection txConn, int numero) {
         String sql = "SELECT * FROM boletas WHERE numero = ?";
+        return buscarBoletaUnica(txConn, sql, numero);
+    }
+
+    public java.util.Optional<BoletaResumen> buscarBoletaPorId(int id) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            return buscarBoletaPorId(conn, id);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error buscando boleta", e);
+        }
+    }
+
+    public java.util.Optional<BoletaResumen> buscarBoletaPorId(Connection txConn, int id) {
+        String sql = "SELECT * FROM boletas WHERE id = ?";
+        return buscarBoletaUnica(txConn, sql, id);
+    }
+
+    private java.util.Optional<BoletaResumen> buscarBoletaUnica(Connection txConn, String sql, int param) {
         try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
-            pstmt.setInt(1, numero);
+            pstmt.setInt(1, param);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     return java.util.Optional.of(new BoletaResumen(
@@ -170,6 +188,7 @@ public class BoletaRepository {
         }
         return java.util.Optional.empty();
     }
+
 
     public List<BoletaResumen> obtenerBoletasPorRango(Connection txConn, String fechaInicio, String fechaFin) {
         List<BoletaResumen> lista = new ArrayList<>();

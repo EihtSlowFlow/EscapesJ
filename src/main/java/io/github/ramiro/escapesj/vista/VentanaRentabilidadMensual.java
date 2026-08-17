@@ -8,7 +8,7 @@ import java.time.LocalDate;
 public class VentanaRentabilidadMensual extends JFrame {
     private final RentabilidadService rentabilidadService;
     private JComboBox<Integer> comboMes;
-    private JComboBox<Integer> comboAnio;
+    private JSpinner spinnerAnio;
     private JLabel lblFacturacionConCostos, lblCostoConocido, lblGanancia, lblFacturacionSinCostos;
     private JLabel lblCantCompletas, lblCantIncompletas, lblEstadoParcial;
 
@@ -28,12 +28,9 @@ public class VentanaRentabilidadMensual extends JFrame {
         pnlFiltro.setBackground(new Color(30, 35, 48));
         
         int currentYear = LocalDate.now().getYear();
-        Integer[] anios = new Integer[currentYear + 5 - 2020 + 1];
-        for (int i = 0; i < anios.length; i++) {
-            anios[i] = 2020 + i;
-        }
-        comboAnio = new JComboBox<>(anios);
-        comboAnio.setSelectedItem(currentYear);
+        SpinnerModel yearModel = new SpinnerNumberModel(currentYear, 2000, 2100, 1);
+        spinnerAnio = new JSpinner(yearModel);
+        spinnerAnio.setEditor(new JSpinner.NumberEditor(spinnerAnio, "#"));
         
         Integer[] meses = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
         comboMes = new JComboBox<>(meses);
@@ -45,7 +42,7 @@ public class VentanaRentabilidadMensual extends JFrame {
         btnCalcular.addActionListener(e -> calcularRentabilidad());
 
         pnlFiltro.add(crearLabelBlanco("Año:"));
-        pnlFiltro.add(comboAnio);
+        pnlFiltro.add(spinnerAnio);
         pnlFiltro.add(crearLabelBlanco("Mes:"));
         pnlFiltro.add(comboMes);
         pnlFiltro.add(btnCalcular);
@@ -79,7 +76,7 @@ public class VentanaRentabilidadMensual extends JFrame {
     }
 
     private void calcularRentabilidad() {
-        int anio = (Integer) comboAnio.getSelectedItem();
+        int anio = (Integer) spinnerAnio.getValue();
         int mes = (Integer) comboMes.getSelectedItem();
 
         try {

@@ -73,6 +73,11 @@ public class DatabaseService {
                     stmt.execute("ALTER TABLE boleta_items ADD COLUMN costo_unitario_historico_centavos INTEGER DEFAULT NULL CHECK (costo_unitario_historico_centavos IS NULL OR costo_unitario_historico_centavos >= 0)");
                 }
             }
+        }),
+        new Migration(5, "Costos en cero para servicios legacy", conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("UPDATE boleta_items SET costo_unitario_historico_centavos = 0 WHERE tipo != 'PRODUCTO' AND costo_unitario_historico_centavos IS NULL");
+            }
         })
     );
 

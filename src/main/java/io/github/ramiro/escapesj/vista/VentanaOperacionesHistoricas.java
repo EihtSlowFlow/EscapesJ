@@ -126,7 +126,15 @@ public class VentanaOperacionesHistoricas extends JFrame {
         try {
             repository.buscarTodas().forEach(op -> {
                 String costoStr = op.getCostoMateriales() == null ? "No conf." : "$" + op.getCostoMateriales();
-                String vinc = op.getBoletaDigitalId() == null ? "-" : "#" + op.getBoletaDigitalId();
+                String vinc = "-";
+                if (op.getBoletaDigitalId() != null) {
+                    var boletaOpt = boletaRepository.buscarBoletaPorId(op.getBoletaDigitalId());
+                    if (boletaOpt.isPresent()) {
+                        vinc = "#" + boletaOpt.get().numero();
+                    } else {
+                        vinc = "ID:" + op.getBoletaDigitalId();
+                    }
+                }
                 model.addRow(new Object[]{
                     op.getId(), op.getFecha(), op.getReferenciaPapel(), op.getCliente(), 
                     op.getDescripcion(), "$" + op.getImporteTotal(), costoStr, 

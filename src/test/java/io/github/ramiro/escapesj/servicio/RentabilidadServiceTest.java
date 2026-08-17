@@ -199,4 +199,74 @@ class RentabilidadServiceTest {
         assertEquals("DIGITALIZADO", actualizada.getEstado());
         assertNull(actualizada.getBoletaDigitalId());
     }
+    @Test
+    void testFiltrarPorOrigen() throws Exception {
+        DatabaseService.getConnection().createStatement().execute("DELETE FROM productos");
+        
+        io.github.ramiro.escapesj.persistencia.ProductoRepository productoRepository = new io.github.ramiro.escapesj.persistencia.ProductoRepository();
+        io.github.ramiro.escapesj.persistencia.ServicioRepository servicioRepository = new io.github.ramiro.escapesj.persistencia.ServicioRepository();
+        io.github.ramiro.escapesj.servicio.FacturacionService facturacionService = new io.github.ramiro.escapesj.servicio.FacturacionService(boletaRepository, productoRepository, servicioRepository);
+        
+        // Agregar producto y facturar boleta digital
+        io.github.ramiro.escapesj.modelo.Producto prod = new io.github.ramiro.escapesj.modelo.Producto("COD-F", "Prod Filtro", "Desc", new BigDecimal("100.00"), 10, new BigDecimal("40.00"));
+        productoRepository.guardar(prod);
+        ItemFacturacion item = new ItemFacturacion("PRODUCTO", "P1", "COD-F", 1, new BigDecimal("100.00"));
+        FacturacionRequest req = new FacturacionRequest("333", "Digital", "2026-09-01", java.util.List.of(item), "EFECTIVO", BigDecimal.ZERO);
+        facturacionService.facturarOrden(req);
+
+        // Agregar operación en papel
+        OperacionHistorica op = new OperacionHistorica();
+        op.setFecha("2026-09-02");
+        op.setCliente("Papel");
+        op.setDescripcion("Trabajo manual");
+        op.setImporteTotal(new BigDecimal("200.00"));
+        op.setCostoMateriales(new BigDecimal("50.00"));
+        op.setEstado("PENDIENTE");
+        operacionRepository.guardar(op);
+
+        // Agregar una operación en papel sin costo para validar resultados parciales.
+        OperacionHistorica opIncompleta = new OperacionHistorica();
+        opIncompleta.setFecha("2026-09-03");
+        opIncompleta.setCliente("Papel sin costo");
+        opIncompleta.setDescripcion("Trabajo sin costo registrado");
+        opIncompleta.setImporteTotal(new BigDecimal("75.00"));
+        opIncompleta.setCostoMateriales(null);
+        opIncompleta.setEstado("PENDIENTE");
+        operacionRepository.guardar(opIncompleta);
+
+        RentabilidadService.ResumenRentabilidad resumen = rentabilidadService.calcularResumenMensual(2026, 9);
+        
+        // Totales base
+        assertEquals(new BigDecimal("375.00"), resumen.getFacturacionTotal());
+        assertEquals(new BigDecimal("90.00"), resumen.costoConocido());
+        assertEquals(new BigDecimal("210.00"), resumen.gananciaCalculable());
+        assertEquals(new BigDecimal("75.00"), resumen.facturacionSinCostos());
+        assertEquals(2, resumen.cantidadCompletas());
+        assertEquals(1, resumen.cantidadIncompletas());
+        assertTrue(resumen.tieneResultadosParciales());
+
+        // Filtrar digitales
+        RentabilidadService.ResumenRentabilidad digitales = rentabilidadService.filtrarPorOrigen(resumen, RentabilidadService.FiltroOrigen.DIGITALES);
+        assertEquals(new BigDecimal("100.00"), digitales.getFacturacionTotal());
+        assertEquals(new BigDecimal("40.00"), digitales.costoConocido());
+        assertEquals(new BigDecimal("60.00"), digitales.gananciaCalculable());
+        assertEquals(new BigDecimal("60.0000"), digitales.margenPorcentual());
+        assertEquals(BigDecimal.ZERO, digitales.facturacionSinCostos());
+        assertEquals(1, digitales.cantidadCompletas());
+        assertEquals(0, digitales.cantidadIncompletas());
+        assertFalse(digitales.tieneResultadosParciales());
+        assertEquals(1, digitales.detalles().size());
+
+        // Filtrar papel
+        RentabilidadService.ResumenRentabilidad papel = rentabilidadService.filtrarPorOrigen(resumen, RentabilidadService.FiltroOrigen.PAPEL);
+        assertEquals(new BigDecimal("275.00"), papel.getFacturacionTotal());
+        assertEquals(new BigDecimal("50.00"), papel.costoConocido());
+        assertEquals(new BigDecimal("150.00"), papel.gananciaCalculable());
+        assertEquals(new BigDecimal("75.0000"), papel.margenPorcentual());
+        assertEquals(new BigDecimal("75.00"), papel.facturacionSinCostos());
+        assertEquals(1, papel.cantidadCompletas());
+        assertEquals(1, papel.cantidadIncompletas());
+        assertTrue(papel.tieneResultadosParciales());
+        assertEquals(2, papel.detalles().size());
+    }
 }

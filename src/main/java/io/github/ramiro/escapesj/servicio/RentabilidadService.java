@@ -139,4 +139,65 @@ public class RentabilidadService {
             return cantidadIncompletas > 0;
         }
     }
+
+    public enum FiltroOrigen {
+        TODAS("Todas"),
+        DIGITALES("Digitales"),
+        PAPEL("Papel");
+
+        private final String descripcion;
+
+        FiltroOrigen(String descripcion) {
+            this.descripcion = descripcion;
+        }
+
+        @Override
+        public String toString() {
+            return descripcion;
+        }
+    }
+
+    public ResumenRentabilidad filtrarPorOrigen(ResumenRentabilidad resumenCompleto, FiltroOrigen origen) {
+        if (origen == FiltroOrigen.TODAS) {
+            return resumenCompleto;
+        }
+
+        List<DetalleRentabilidad> filtrados = resumenCompleto.detalles().stream()
+                .filter(d -> (origen == FiltroOrigen.DIGITALES && "Digital".equals(d.origen())) ||
+                             (origen == FiltroOrigen.PAPEL && "Papel".equals(d.origen())))
+                .collect(java.util.stream.Collectors.toList());
+
+        BigDecimal facturacionConCostos = BigDecimal.ZERO;
+        BigDecimal costoConocido = BigDecimal.ZERO;
+        BigDecimal facturacionSinCostos = BigDecimal.ZERO;
+        int cantidadIncompletas = 0;
+        int cantidadCompletas = 0;
+
+        for (DetalleRentabilidad d : filtrados) {
+            if (d.completa()) {
+                facturacionConCostos = facturacionConCostos.add(d.facturacion());
+                costoConocido = costoConocido.add(d.costo());
+                cantidadCompletas++;
+            } else {
+                facturacionSinCostos = facturacionSinCostos.add(d.facturacion());
+                cantidadIncompletas++;
+            }
+        }
+
+        BigDecimal gananciaCalculable = facturacionConCostos.subtract(costoConocido);
+        BigDecimal margenPorcentual = (facturacionConCostos.compareTo(BigDecimal.ZERO) > 0)
+                ? gananciaCalculable.divide(facturacionConCostos, 4, java.math.RoundingMode.HALF_UP).multiply(new BigDecimal("100"))
+                : null;
+
+        return new ResumenRentabilidad(
+                facturacionConCostos,
+                costoConocido,
+                gananciaCalculable,
+                margenPorcentual,
+                facturacionSinCostos,
+                cantidadIncompletas,
+                cantidadCompletas,
+                filtrados
+        );
+    }
 }

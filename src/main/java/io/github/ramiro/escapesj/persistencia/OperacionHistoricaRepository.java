@@ -158,6 +158,23 @@ public class OperacionHistoricaRepository {
         return lista;
     }
 
+    public java.util.Optional<OperacionHistorica> buscarPorId(int id) {
+        String sql = "SELECT o.*, b.numero as boleta_numero FROM operaciones_historicas o LEFT JOIN boletas b ON o.boleta_digital_id = b.id WHERE o.id = ?";
+        try (Connection conn = DatabaseService.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return java.util.Optional.of(mapearOperacion(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar operación histórica por ID", e);
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<OperacionHistorica> buscarTodas() {
         List<OperacionHistorica> lista = new ArrayList<>();
         String sql = "SELECT o.*, b.numero as boleta_numero FROM operaciones_historicas o LEFT JOIN boletas b ON o.boleta_digital_id = b.id ORDER BY o.fecha DESC, o.id DESC";

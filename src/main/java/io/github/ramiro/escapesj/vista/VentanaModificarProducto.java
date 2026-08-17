@@ -46,6 +46,7 @@ public class VentanaModificarProducto extends JDialog {
 
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(new Color(0, 43, 91));
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         setContentPane(scrollPane);
         ZoomManager.packAndFitToScreen(this, 400, 500);

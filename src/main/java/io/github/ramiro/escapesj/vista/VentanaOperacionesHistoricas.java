@@ -80,6 +80,7 @@ public class VentanaOperacionesHistoricas extends JFrame {
         JScrollPane scrollNuevo = new JScrollPane(pnlNuevo);
         scrollNuevo.setBorder(null);
         scrollNuevo.setPreferredSize(new Dimension(350, 0));
+        scrollNuevo.getViewport().setBackground(new Color(0, 43, 91));
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollTabla, scrollNuevo);
         splitPane.setBackground(new Color(0, 43, 91));
@@ -96,12 +97,13 @@ public class VentanaOperacionesHistoricas extends JFrame {
             String ref = txtRef.getText().trim();
             String cliente = txtCliente.getText().trim();
             String desc = txtDesc.getText().trim();
-            BigDecimal total = new BigDecimal(txtTotal.getText().trim());
+            
+            BigDecimal total = io.github.ramiro.escapesj.sdk.DineroUtil.parsearMontoArs(txtTotal.getText());
 
             String costoStr = txtCosto.getText().trim();
             BigDecimal costo = null;
             if (!costoStr.isEmpty()) {
-                costo = new BigDecimal(costoStr);
+                costo = io.github.ramiro.escapesj.sdk.DineroUtil.parsearMontoArs(costoStr);
             }
             
             String obs = txtObs.getText().trim();
@@ -114,8 +116,8 @@ public class VentanaOperacionesHistoricas extends JFrame {
             JOptionPane.showMessageDialog(this, "Registro guardado correctamente.");
         } catch (java.time.format.DateTimeParseException ex) {
             JOptionPane.showMessageDialog(this, "La fecha debe tener el formato YYYY-MM-DD.");
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Verifique los montos numéricos.");
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de formato", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error al guardar: " + ex.getMessage());
         }
@@ -215,13 +217,17 @@ public class VentanaOperacionesHistoricas extends JFrame {
 
     private void abrirDetalle(int id) {
         try {
-            OperacionHistorica op = repository.buscarTodas().stream().filter(o -> o.getId() == id).findFirst().orElse(null);
-            if (op != null) {
-                new DialogoOperacionHistorica(this, op, repository, boletaRepository).setVisible(true);
+            var opOpt = repository.buscarPorId(id);
+            if (opOpt.isPresent()) {
+                new DialogoOperacionHistorica(this, opOpt.get(), repository, boletaRepository).setVisible(true);
                 actualizarTabla();
+            } else {
+                JOptionPane.showMessageDialog(this, "La operación histórica no existe.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+        } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
+            ErrorHandler.mostrarErrorPersistencia(this, "abrir detalle", ex);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
     }
 }

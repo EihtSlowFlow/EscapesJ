@@ -78,6 +78,8 @@ public class DatabaseMigrationTest {
                 assertEquals(3, rs.getInt(1));
                 assertTrue(rs.next());
                 assertEquals(4, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(5, rs.getInt(1));
                 assertFalse(rs.next());
             }
         }
@@ -120,7 +122,7 @@ public class DatabaseMigrationTest {
              Statement stmt = conn.createStatement();
              java.sql.ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM schema_migrations")) {
             rs.next();
-            assertEquals(4, rs.getInt(1), "Solo deben haber 4 migraciones registradas");
+            assertEquals(5, rs.getInt(1), "Solo deben haber 5 migraciones registradas");
         }
     }
 

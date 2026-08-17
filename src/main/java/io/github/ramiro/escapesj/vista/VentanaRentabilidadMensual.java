@@ -11,8 +11,11 @@ import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class VentanaRentabilidadMensual extends JFrame {
+    private static final Logger logger = LoggerFactory.getLogger(VentanaRentabilidadMensual.class);
     private final RentabilidadService rentabilidadService;
     private JComboBox<Integer> comboMes;
     private JSpinner spinnerAnio;
@@ -177,10 +180,10 @@ public class VentanaRentabilidadMensual extends JFrame {
         lblCantIncompletas.setText("Cant. Operaciones Incompletas: " + resumenVisible.cantidadIncompletas());
 
         if (resumenVisible.tieneResultadosParciales()) {
-            lblEstadoParcial.setText("⚠️ RESULTADO PARCIAL: Hay operaciones sin costos conocidos.");
+            lblEstadoParcial.setText("ADVERTENCIA - RESULTADO PARCIAL: Hay operaciones sin costos conocidos.");
             lblEstadoParcial.setForeground(new Color(241, 196, 15));
         } else {
-            lblEstadoParcial.setText("✅ RESULTADO COMPLETO");
+            lblEstadoParcial.setText("RESULTADO COMPLETO");
             lblEstadoParcial.setForeground(new Color(46, 204, 113));
         }
         
@@ -218,29 +221,46 @@ public class VentanaRentabilidadMensual extends JFrame {
 
             try {
                 io.github.ramiro.escapesj.servicio.RentabilidadPdfService.generarPdf(resumenVisible, anio, mes, filtro, file);
-                
-                int open = JOptionPane.showConfirmDialog(this,
-                        "El PDF se generó exitosamente.\n¿Desea abrirlo ahora?",
-                        "Exportación exitosa",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.INFORMATION_MESSAGE);
-                        
-                if (open == JOptionPane.YES_OPTION) {
-                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                        Desktop.getDesktop().open(file);
-                    } else {
-                        JOptionPane.showMessageDialog(this, "La acción de abrir archivos no está soportada en este sistema.\nEl archivo se encuentra en: " + file.getAbsolutePath());
-                    }
-                }
             } catch (Exception ex) {
-                // Not a persistence exception, so we show a friendly message and log it
-                ex.printStackTrace();
+                logger.error("No se pudo generar el informe PDF en {}", file.getAbsolutePath(), ex);
                 JOptionPane.showMessageDialog(this,
                         "Hubo un problema al crear o guardar el PDF.\n" + ex.getMessage(),
                         "Error de exportación",
                         JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            int open = JOptionPane.showConfirmDialog(this,
+                    "El PDF se generó exitosamente.\n¿Desea abrirlo ahora?",
+                    "Exportación exitosa",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE);
+
+            if (open == JOptionPane.YES_OPTION) {
+                abrirPdf(file);
             }
         }
+    }
+
+    private void abrirPdf(File file) {
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            informarRutaDelPdf(file);
+            return;
+        }
+
+        try {
+            Desktop.getDesktop().open(file);
+        } catch (Exception ex) {
+            logger.warn("El PDF se guardó, pero no se pudo abrir automáticamente: {}", file.getAbsolutePath(), ex);
+            informarRutaDelPdf(file);
+        }
+    }
+
+    private void informarRutaDelPdf(File file) {
+        JOptionPane.showMessageDialog(this,
+                "El PDF se guardó correctamente, pero no pudo abrirse automáticamente.\nArchivo: " + file.getAbsolutePath(),
+                "PDF guardado",
+                JOptionPane.INFORMATION_MESSAGE);
     }
     
     private void refrescarTabla() {

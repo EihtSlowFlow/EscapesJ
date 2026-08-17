@@ -2,7 +2,11 @@ package io.github.ramiro.escapesj.servicio;
 
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfPageEventHelper;
 import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 import io.github.ramiro.escapesj.servicio.RentabilidadService.ResumenRentabilidad;
 import io.github.ramiro.escapesj.servicio.RentabilidadService.DetalleRentabilidad;
@@ -22,16 +26,13 @@ public class RentabilidadPdfService {
         Path destinoPath = archivoDestino.toPath();
         Path tempPath = Files.createTempFile(destinoPath.getParent(), ".rentabilidad-", ".tmp");
 
-        try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
-            Document document = new Document(PageSize.A4.rotate(), 30, 30, 30, 30);
-            PdfWriter writer = PdfWriter.getInstance(document, fos);
-            
-            try {
-                // Header for pages
-                HeaderFooter footer = new HeaderFooter(new Phrase("Página ", new Font(Font.HELVETICA, 8)), true);
-                footer.setAlignment(Element.ALIGN_RIGHT);
-                footer.setBorder(Rectangle.NO_BORDER);
-                document.setFooter(footer);
+        try {
+            try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
+                Document document = new Document(PageSize.A4.rotate(), 30, 30, 30, 30);
+                PdfWriter writer = PdfWriter.getInstance(document, fos);
+                writer.setPageEvent(new NumeracionPaginas());
+
+                try {
                 
                 document.open();
 
@@ -78,7 +79,7 @@ public class RentabilidadPdfService {
                 document.add(new Paragraph("Cantidad Operaciones Incompletas: " + resumen.cantidadIncompletas(), fBody));
 
                 if (resumen.tieneResultadosParciales()) {
-                    document.add(new Paragraph("⚠️ RESULTADO PARCIAL: Hay operaciones sin costos conocidos.", fWarning));
+                    document.add(new Paragraph("ADVERTENCIA - RESULTADO PARCIAL: Hay operaciones sin costos conocidos.", fWarning));
                 }
 
                 document.add(new Paragraph(" "));
@@ -124,14 +125,15 @@ public class RentabilidadPdfService {
                     }
                 }
 
-                document.add(tabla);
-            } finally {
-                if (document != null && document.isOpen()) {
-                    document.close();
+                    document.add(tabla);
+                } finally {
+                    if (document.isOpen()) {
+                        document.close();
+                    }
                 }
             }
 
-            // Mover archivo temporal al destino final (ATOMIC_MOVE preferido)
+            // El stream ya está completamente cerrado antes de mover, requisito en Windows.
             try {
                 Files.move(tempPath, destinoPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (java.nio.file.AtomicMoveNotSupportedException e) {
@@ -152,5 +154,41 @@ public class RentabilidadPdfService {
         PdfPCell cell = new PdfPCell(new Paragraph(texto, font));
         cell.setPadding(5);
         return cell;
+    }
+
+    private static final class NumeracionPaginas extends PdfPageEventHelper {
+        private static final Font FONT = new Font(Font.HELVETICA, 8);
+        private static final BaseFont BASE_FONT = FONT.getCalculatedBaseFont(false);
+        private PdfTemplate totalPaginas;
+
+        @Override
+        public void onOpenDocument(PdfWriter writer, Document document) {
+            totalPaginas = writer.getDirectContent().createTemplate(20, 10);
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            String prefijo = "Página " + writer.getPageNumber() + " de ";
+            float anchoPrefijo = BASE_FONT.getWidthPoint(prefijo, FONT.getSize());
+            float x = document.right() - anchoPrefijo - 20;
+            float y = document.bottom() - 15;
+            PdfContentByte contenido = writer.getDirectContent();
+
+            contenido.beginText();
+            contenido.setFontAndSize(BASE_FONT, FONT.getSize());
+            contenido.setTextMatrix(x, y);
+            contenido.showText(prefijo);
+            contenido.endText();
+            contenido.addTemplate(totalPaginas, x + anchoPrefijo, y);
+        }
+
+        @Override
+        public void onCloseDocument(PdfWriter writer, Document document) {
+            totalPaginas.beginText();
+            totalPaginas.setFontAndSize(BASE_FONT, FONT.getSize());
+            totalPaginas.setTextMatrix(0, 0);
+            totalPaginas.showText(String.valueOf(writer.getPageNumber() - 1));
+            totalPaginas.endText();
+        }
     }
 }

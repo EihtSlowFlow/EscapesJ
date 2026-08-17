@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Collections;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -83,7 +84,7 @@ class RentabilidadPdfServiceTest {
             String text = extractor.getTextFromPage(1);
 
             assertTrue(text.contains("Filtro aplicado: Digitales"));
-            assertTrue(text.contains("RESULTADO PARCIAL: Hay operaciones sin costos conocidos"));
+            assertTrue(text.contains("ADVERTENCIA - RESULTADO PARCIAL: Hay operaciones sin costos conocidos"));
             assertTrue(text.contains("No calculable"));
             assertTrue(text.contains("No disponible"));
             assertTrue(text.contains("Incompleta"));
@@ -151,5 +152,39 @@ class RentabilidadPdfServiceTest {
         });
         
         assertTrue(ex.getMessage().contains("Error al generar o guardar el informe PDF"));
+    }
+
+    @Test
+    void testGenerarPdfMultipaginaRepiteEncabezadoYNumeracion() throws Exception {
+        List<DetalleRentabilidad> detalles = new ArrayList<>();
+        for (int i = 1; i <= 150; i++) {
+            detalles.add(new DetalleRentabilidad(
+                    i, "Digital", "2026-08-15", "Cliente " + i,
+                    new BigDecimal("100.00"), new BigDecimal("40.00"),
+                    new BigDecimal("60.00"), new BigDecimal("60.00"), true
+            ));
+        }
+        ResumenRentabilidad resumen = new ResumenRentabilidad(
+                new BigDecimal("15000.00"), new BigDecimal("6000.00"),
+                new BigDecimal("9000.00"), new BigDecimal("60.00"),
+                BigDecimal.ZERO, 0, 150, detalles
+        );
+
+        File pdfFile = tempDir.resolve("Rentabilidad-Multipagina.pdf").toFile();
+        RentabilidadPdfService.generarPdf(resumen, 2026, 8, FiltroOrigen.TODAS, pdfFile);
+
+        try (PdfReader reader = new PdfReader(pdfFile.getAbsolutePath())) {
+            assertTrue(reader.getNumberOfPages() > 1);
+            PdfTextExtractor extractor = new PdfTextExtractor(reader);
+            int totalPaginas = reader.getNumberOfPages();
+            for (int pagina = 1; pagina <= totalPaginas; pagina++) {
+                String text = extractor.getTextFromPage(pagina);
+                String textoNormalizado = text.replaceAll("\\s+", " ");
+                assertTrue(text.contains("Origen"), "Falta el encabezado en la página " + pagina);
+                assertTrue(text.contains("Estado"), "Falta el encabezado en la página " + pagina);
+                assertTrue(textoNormalizado.contains("Página " + pagina + " de " + totalPaginas),
+                        "Falta la numeración completa en la página " + pagina);
+            }
+        }
     }
 }

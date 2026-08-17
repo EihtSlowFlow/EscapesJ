@@ -224,25 +224,49 @@ class RentabilidadServiceTest {
         op.setEstado("PENDIENTE");
         operacionRepository.guardar(op);
 
+        // Agregar una operación en papel sin costo para validar resultados parciales.
+        OperacionHistorica opIncompleta = new OperacionHistorica();
+        opIncompleta.setFecha("2026-09-03");
+        opIncompleta.setCliente("Papel sin costo");
+        opIncompleta.setDescripcion("Trabajo sin costo registrado");
+        opIncompleta.setImporteTotal(new BigDecimal("75.00"));
+        opIncompleta.setCostoMateriales(null);
+        opIncompleta.setEstado("PENDIENTE");
+        operacionRepository.guardar(opIncompleta);
+
         RentabilidadService.ResumenRentabilidad resumen = rentabilidadService.calcularResumenMensual(2026, 9);
         
         // Totales base
-        assertEquals(new BigDecimal("300.00"), resumen.getFacturacionTotal());
+        assertEquals(new BigDecimal("375.00"), resumen.getFacturacionTotal());
         assertEquals(new BigDecimal("90.00"), resumen.costoConocido());
         assertEquals(new BigDecimal("210.00"), resumen.gananciaCalculable());
+        assertEquals(new BigDecimal("75.00"), resumen.facturacionSinCostos());
+        assertEquals(2, resumen.cantidadCompletas());
+        assertEquals(1, resumen.cantidadIncompletas());
+        assertTrue(resumen.tieneResultadosParciales());
 
         // Filtrar digitales
         RentabilidadService.ResumenRentabilidad digitales = rentabilidadService.filtrarPorOrigen(resumen, RentabilidadService.FiltroOrigen.DIGITALES);
         assertEquals(new BigDecimal("100.00"), digitales.getFacturacionTotal());
         assertEquals(new BigDecimal("40.00"), digitales.costoConocido());
         assertEquals(new BigDecimal("60.00"), digitales.gananciaCalculable());
+        assertEquals(new BigDecimal("60.0000"), digitales.margenPorcentual());
+        assertEquals(BigDecimal.ZERO, digitales.facturacionSinCostos());
+        assertEquals(1, digitales.cantidadCompletas());
+        assertEquals(0, digitales.cantidadIncompletas());
+        assertFalse(digitales.tieneResultadosParciales());
         assertEquals(1, digitales.detalles().size());
 
         // Filtrar papel
         RentabilidadService.ResumenRentabilidad papel = rentabilidadService.filtrarPorOrigen(resumen, RentabilidadService.FiltroOrigen.PAPEL);
-        assertEquals(new BigDecimal("200.00"), papel.getFacturacionTotal());
+        assertEquals(new BigDecimal("275.00"), papel.getFacturacionTotal());
         assertEquals(new BigDecimal("50.00"), papel.costoConocido());
         assertEquals(new BigDecimal("150.00"), papel.gananciaCalculable());
-        assertEquals(1, papel.detalles().size());
+        assertEquals(new BigDecimal("75.0000"), papel.margenPorcentual());
+        assertEquals(new BigDecimal("75.00"), papel.facturacionSinCostos());
+        assertEquals(1, papel.cantidadCompletas());
+        assertEquals(1, papel.cantidadIncompletas());
+        assertTrue(papel.tieneResultadosParciales());
+        assertEquals(2, papel.detalles().size());
     }
 }

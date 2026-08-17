@@ -39,13 +39,10 @@ public class DialogoOperacionHistorica extends JDialog {
         content.add(crearLabel("Estado: " + op.getEstado()));
         
         String vinc = "No vinculado";
-        if (op.getBoletaDigitalId() != null) {
-            var boletaOpt = boletaRepo.buscarBoletaPorId(op.getBoletaDigitalId());
-            if (boletaOpt.isPresent()) {
-                vinc = "Boleta #" + boletaOpt.get().numero();
-            } else {
-                vinc = "Boleta ID:" + op.getBoletaDigitalId();
-            }
+        if (op.getBoletaDigitalNumero() != null) {
+            vinc = "Boleta #" + op.getBoletaDigitalNumero();
+        } else if (op.getBoletaDigitalId() != null) {
+            vinc = "Boleta ID:" + op.getBoletaDigitalId();
         }
         content.add(crearLabel("Vinculación: " + vinc));
 

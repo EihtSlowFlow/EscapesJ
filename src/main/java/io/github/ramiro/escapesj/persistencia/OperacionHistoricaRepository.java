@@ -133,11 +133,11 @@ public class OperacionHistoricaRepository {
 
     public List<OperacionHistorica> buscarPorRangoFechaYEstado(Connection txConn, String fechaInicio, String fechaFin, String estado) {
         List<OperacionHistorica> lista = new ArrayList<>();
-        String sql = "SELECT * FROM operaciones_historicas WHERE fecha >= ? AND fecha < ?";
+        String sql = "SELECT o.*, b.numero as boleta_numero FROM operaciones_historicas o LEFT JOIN boletas b ON o.boleta_digital_id = b.id WHERE o.fecha >= ? AND o.fecha < ?";
         if (estado != null) {
-            sql += " AND estado = ?";
+            sql += " AND o.estado = ?";
         }
-        sql += " ORDER BY fecha ASC";
+        sql += " ORDER BY o.fecha ASC";
 
         try (PreparedStatement ps = txConn.prepareStatement(sql)) {
             ps.setString(1, fechaInicio);
@@ -160,7 +160,7 @@ public class OperacionHistoricaRepository {
 
     public List<OperacionHistorica> buscarTodas() {
         List<OperacionHistorica> lista = new ArrayList<>();
-        String sql = "SELECT * FROM operaciones_historicas ORDER BY fecha DESC, id DESC";
+        String sql = "SELECT o.*, b.numero as boleta_numero FROM operaciones_historicas o LEFT JOIN boletas b ON o.boleta_digital_id = b.id ORDER BY o.fecha DESC, o.id DESC";
 
         try (Connection conn = DatabaseService.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -212,6 +212,15 @@ public class OperacionHistoricaRepository {
             op.setBoletaDigitalId(null);
         } else {
             op.setBoletaDigitalId(boletaId);
+        }
+
+        try {
+            int boletaNum = rs.getInt("boleta_numero");
+            if (!rs.wasNull()) {
+                op.setBoletaDigitalNumero(boletaNum);
+            }
+        } catch (SQLException ignore) {
+            // Ignorar si la columna no existe en alguna query particular (aunque ahora en ambas debería estar)
         }
 
         op.setCreadoEn(rs.getString("creado_en"));

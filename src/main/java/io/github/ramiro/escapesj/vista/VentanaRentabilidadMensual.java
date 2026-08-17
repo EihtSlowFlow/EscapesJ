@@ -28,7 +28,7 @@ public class VentanaRentabilidadMensual extends JFrame {
         pnlFiltro.setBackground(new Color(30, 35, 48));
         
         int currentYear = LocalDate.now().getYear();
-        SpinnerModel yearModel = new SpinnerNumberModel(currentYear, 2000, 2100, 1);
+        SpinnerModel yearModel = new SpinnerNumberModel(currentYear, null, null, 1);
         spinnerAnio = new JSpinner(yearModel);
         spinnerAnio.setEditor(new JSpinner.NumberEditor(spinnerAnio, "#"));
         

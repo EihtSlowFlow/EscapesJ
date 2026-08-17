@@ -13,6 +13,7 @@ public class OperacionHistorica {
     private String observaciones;
     private String estado; // 'PENDIENTE' o 'DIGITALIZADO'
     private Integer boletaDigitalId; // Puede ser null
+    private Integer boletaDigitalNumero; // Puede ser null, obtenido via join
     private String creadoEn;
     private String actualizadoEn;
 
@@ -65,6 +66,9 @@ public class OperacionHistorica {
 
     public Integer getBoletaDigitalId() { return boletaDigitalId; }
     public void setBoletaDigitalId(Integer boletaDigitalId) { this.boletaDigitalId = boletaDigitalId; }
+
+    public Integer getBoletaDigitalNumero() { return boletaDigitalNumero; }
+    public void setBoletaDigitalNumero(Integer boletaDigitalNumero) { this.boletaDigitalNumero = boletaDigitalNumero; }
 
     public String getCreadoEn() { return creadoEn; }
     public void setCreadoEn(String creadoEn) { this.creadoEn = creadoEn; }

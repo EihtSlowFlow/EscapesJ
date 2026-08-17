@@ -28,7 +28,7 @@ class PdfServiceTest {
         String ruta = BoletaPdfService.generarPdf(
                 7, "2026-07-31", "12345678", "Cliente",
                 List.of(new BoletaItem(1, "SERVICIO", "Soldadura", null, 1,
-                        new BigDecimal("1500.00"), new BigDecimal("1500.00"))),
+                        new BigDecimal("1500.00"), new BigDecimal("1500.00"), BigDecimal.ZERO)),
                 new BigDecimal("1500.00"), "TRANSFERENCIA", BigDecimal.ZERO,
                 tempDir.toString(), emisor);
 

@@ -15,12 +15,11 @@ import java.util.List;
 public class BoletaRepository {
     private static final Logger logger = LoggerFactory.getLogger(BoletaRepository.class);
 
-
     public BoletaRepository() {
     }
 
     public record BoletaResumen(int id, int numero, String dni, String nombreCliente, String fecha, BigDecimal total) {}
-    public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {}
+    public record BoletaItem(int id, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal, BigDecimal costoUnitarioHistorico) {}
 
     private int siguienteNumero(Connection txConn) {
         String sql = "SELECT MAX(numero) FROM boletas";
@@ -72,19 +71,19 @@ public class BoletaRepository {
         return -1;
     }
 
-    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
+    public void agregarItem(int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal costoUnitarioHistorico) {
         try (Connection conn = DatabaseService.getConnection()) {
-            agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario);
+            agregarItem(conn, boletaId, tipo, descripcion, codigoProducto, cantidad, precioUnitario, costoUnitarioHistorico);
         } catch (SQLException e) {
             logger.error("Error:", e);
             throw new PersistenceException("Error agregando item", e);
         }
     }
 
-    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario) {
+    public void agregarItem(Connection txConn, int boletaId, String tipo, String descripcion, String codigoProducto, int cantidad, BigDecimal precioUnitario, BigDecimal costoUnitarioHistorico) {
         String sql = """
-                INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO boleta_items (boleta_id, tipo, descripcion, codigo_producto, cantidad, precio_unitario, subtotal, costo_unitario_historico_centavos)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
             pstmt.setInt(1, boletaId);
@@ -94,6 +93,11 @@ public class BoletaRepository {
             pstmt.setInt(5, cantidad);
             pstmt.setLong(6, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario));
             pstmt.setLong(7, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(precioUnitario.multiply(java.math.BigDecimal.valueOf(cantidad))));
+            if (costoUnitarioHistorico == null) {
+                pstmt.setNull(8, java.sql.Types.INTEGER);
+            } else {
+                pstmt.setLong(8, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(costoUnitarioHistorico));
+            }
             pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
@@ -135,6 +139,32 @@ public class BoletaRepository {
         return lista;
     }
 
+    public List<BoletaResumen> obtenerBoletasPorRango(Connection txConn, String fechaInicio, String fechaFin) {
+        List<BoletaResumen> lista = new ArrayList<>();
+        String sql = "SELECT * FROM boletas WHERE fecha >= ? AND fecha < ? ORDER BY fecha ASC";
+
+        try (PreparedStatement pstmt = txConn.prepareStatement(sql)) {
+            pstmt.setString(1, fechaInicio);
+            pstmt.setString(2, fechaFin);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new BoletaResumen(
+                            rs.getInt("id"),
+                            rs.getInt("numero"),
+                            rs.getString("dni"),
+                            rs.getString("nombre_cliente"),
+                            rs.getString("fecha"),
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("total"))
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error obteniendo boletas por rango", e);
+        }
+        return lista;
+    }
+
     public List<BoletaItem> obtenerItems(int boletaId) {
         try (Connection conn = DatabaseService.getConnection()) {
             return obtenerItems(conn, boletaId);
@@ -148,7 +178,7 @@ public class BoletaRepository {
         List<BoletaItem> lista = new ArrayList<>();
         String sql = """
                 SELECT id, tipo, descripcion, codigo_producto, cantidad, precio_unitario,
-                       (cantidad * precio_unitario) AS subtotal
+                       (cantidad * precio_unitario) AS subtotal, costo_unitario_historico_centavos
                 FROM boleta_items
                 WHERE boleta_id = ?
                 ORDER BY id ASC
@@ -157,6 +187,9 @@ public class BoletaRepository {
             pstmt.setInt(1, boletaId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
+                    long costoHistoricoCentavos = rs.getLong("costo_unitario_historico_centavos");
+                    BigDecimal costoHistorico = rs.wasNull() ? null : io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(costoHistoricoCentavos);
+
                     lista.add(new BoletaItem(
                             rs.getInt("id"),
                             rs.getString("tipo"),
@@ -164,7 +197,8 @@ public class BoletaRepository {
                             rs.getString("codigo_producto"),
                             rs.getInt("cantidad"),
                             io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio_unitario")),
-                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("subtotal"))
+                            io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("subtotal")),
+                            costoHistorico
                     ));
                 }
             }

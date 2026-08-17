@@ -38,15 +38,25 @@ public class FacturacionService {
 
             // 2. Insertar ítems, descontar stock y registrar historial
             for (ItemFacturacion item : request.items()) {
-                boletaRepository.agregarItem(txConn, boletaId, item.tipo(), item.descripcion(),
-                        item.codigoProducto(), item.cantidad(), item.precioUnitario());
+                java.math.BigDecimal costoHistorico = null;
 
                 if ("PRODUCTO".equals(item.tipo()) && item.codigoProducto() != null) {
+                    var optProd = productoRepository.buscarPorCodigo(txConn, item.codigoProducto());
+                    if (optProd.isEmpty()) {
+                        throw new RuntimeException("Producto no encontrado en DB: " + item.codigoProducto());
+                    }
+                    costoHistorico = optProd.get().getCostoUnitario();
+                    
                     boolean stockRestado = productoRepository.intentarRestarStock(txConn, item.codigoProducto(), item.cantidad());
                     if (!stockRestado) {
                         throw new RuntimeException("Stock insuficiente para el producto: " + item.descripcion());
                     }
+                } else {
+                    costoHistorico = java.math.BigDecimal.ZERO;
                 }
+
+                boletaRepository.agregarItem(txConn, boletaId, item.tipo(), item.descripcion(),
+                        item.codigoProducto(), item.cantidad(), item.precioUnitario(), costoHistorico);
 
                 servicioRepository.registrar(txConn, new ServicioRealizado(request.dni(), request.nombreCliente(),
                         item.tipo() + ": " + item.descripcion(), request.fecha()));

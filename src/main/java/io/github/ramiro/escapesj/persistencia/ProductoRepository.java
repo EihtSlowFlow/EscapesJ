@@ -2,6 +2,7 @@ package io.github.ramiro.escapesj.persistencia;
 
 import io.github.ramiro.escapesj.modelo.Producto;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,6 @@ import java.util.Optional;
 public class ProductoRepository {
     private static final Logger logger = LoggerFactory.getLogger(ProductoRepository.class);
 
-
     public ProductoRepository() {
     }
 
@@ -21,8 +21,8 @@ public class ProductoRepository {
      * Guarda un producto nuevo o actualiza uno existente si el código ya existe.
      */
     public void guardar(Producto p) {
-        String sql = "INSERT INTO productos (codigo, nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?, ?) " +
-                "ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, precio=excluded.precio, stock=excluded.stock";
+        String sql = "INSERT INTO productos (codigo, nombre, descripcion, precio, stock, costo_unitario_centavos) VALUES (?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, precio=excluded.precio, stock=excluded.stock, costo_unitario_centavos=excluded.costo_unitario_centavos";
         try (Connection connection = DatabaseService.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, p.getCodigo());
@@ -30,6 +30,11 @@ public class ProductoRepository {
             ps.setString(3, p.getDescripcion());
             ps.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(p.getPrecio()));
             ps.setInt(5, p.getStock());
+            if (p.getCostoUnitario() == null) {
+                ps.setNull(6, java.sql.Types.INTEGER);
+            } else {
+                ps.setLong(6, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(p.getCostoUnitario()));
+            }
             ps.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
@@ -41,7 +46,7 @@ public class ProductoRepository {
      * Permite modificar incluso el código (llave primaria) usando el código anterior como referencia.
      */
     public void actualizarConCambioDeCodigo(Producto producto, String viejoCodigo) {
-        String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=? WHERE codigo=?";
+        String sql = "UPDATE productos SET codigo=?, nombre=?, descripcion=?, precio=?, stock=?, costo_unitario_centavos=? WHERE codigo=?";
         try (Connection connection = DatabaseService.getConnection();
              PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, producto.getCodigo());
@@ -49,7 +54,12 @@ public class ProductoRepository {
             pstmt.setString(3, producto.getDescripcion());
             pstmt.setLong(4, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(producto.getPrecio()));
             pstmt.setInt(5, producto.getStock());
-            pstmt.setString(6, viejoCodigo);
+            if (producto.getCostoUnitario() == null) {
+                pstmt.setNull(6, java.sql.Types.INTEGER);
+            } else {
+                pstmt.setLong(6, io.github.ramiro.escapesj.sdk.DineroUtil.aCentavos(producto.getCostoUnitario()));
+            }
+            pstmt.setString(7, viejoCodigo);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Error:", e);
@@ -59,26 +69,37 @@ public class ProductoRepository {
 
     /**
      * Busca un producto específico por su código.
-     * Este es el método que te faltaba para el buscador.
      */
     public Optional<Producto> buscarPorCodigo(String codigo) {
+        try (Connection connection = DatabaseService.getConnection()) {
+            return buscarPorCodigo(connection, codigo);
+        } catch (SQLException e) {
+            logger.error("Error:", e);
+            throw new PersistenceException("Error al buscar producto", e);
+        }
+    }
+
+    public Optional<Producto> buscarPorCodigo(Connection txConn, String codigo) {
         String sql = "SELECT * FROM productos WHERE codigo = ?";
-        try (Connection connection = DatabaseService.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (PreparedStatement ps = txConn.prepareStatement(sql)) {
             ps.setString(1, codigo);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
+                long costoCentavos = rs.getLong("costo_unitario_centavos");
+                BigDecimal costo = rs.wasNull() ? null : io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(costoCentavos);
+
                 return Optional.of(new Producto(
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
                         io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
-                        rs.getInt("stock")
+                        rs.getInt("stock"),
+                        costo
                 ));
             }
         } catch (SQLException e) {
             logger.error("Error:", e);
-            throw new PersistenceException("Error al buscar producto", e);
+            throw new PersistenceException("Error al buscar producto en transaccion", e);
         }
         return Optional.empty();
     }
@@ -92,12 +113,16 @@ public class ProductoRepository {
         try (Connection connection = DatabaseService.getConnection();
              Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
+                long costoCentavos = rs.getLong("costo_unitario_centavos");
+                BigDecimal costo = rs.wasNull() ? null : io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(costoCentavos);
+
                 lista.add(new Producto(
                         rs.getString("codigo"),
                         rs.getString("nombre"),
                         rs.getString("descripcion"),
                         io.github.ramiro.escapesj.sdk.DineroUtil.desdeCentavos(rs.getLong("precio")),
-                        rs.getInt("stock")
+                        rs.getInt("stock"),
+                        costo
                 ));
             }
         } catch (SQLException e) {

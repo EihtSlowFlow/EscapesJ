@@ -38,7 +38,7 @@ class BoletaRepositoryTest {
         int boletaId = boletaRepository.crearBoleta("12345678", "Juan Perez", "2026-08-16", new BigDecimal("1500.00"));
         assertTrue(boletaId > 0);
 
-        boletaRepository.agregarItem(boletaId, "PRODUCTO", "Caño", "COD-1", 2, new BigDecimal("750.00"));
+        boletaRepository.agregarItem(boletaId, "PRODUCTO", "Caño", "COD-1", 2, new BigDecimal("750.00"), new BigDecimal("500.00"));
 
         List<BoletaRepository.BoletaResumen> boletas = boletaRepository.buscarBoletasPorDni("12345678");
         assertEquals(1, boletas.size());

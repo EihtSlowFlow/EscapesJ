@@ -63,6 +63,16 @@ public class DatabaseService {
                     stmt.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER DEFAULT 1");
                 }
             }
+        }),
+        new Migration(4, "Rentabilidad y operaciones historicas", conn -> {
+            try (Statement stmt = conn.createStatement()) {
+                if (!existeColumna(conn, "productos", "costo_unitario_centavos")) {
+                    stmt.execute("ALTER TABLE productos ADD COLUMN costo_unitario_centavos INTEGER DEFAULT NULL");
+                }
+                if (!existeColumna(conn, "boleta_items", "costo_unitario_historico_centavos")) {
+                    stmt.execute("ALTER TABLE boleta_items ADD COLUMN costo_unitario_historico_centavos INTEGER DEFAULT NULL");
+                }
+            }
         })
     );
 
@@ -106,6 +116,7 @@ public class DatabaseService {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("PRAGMA journal_mode=WAL;");
                 stmt.execute("PRAGMA synchronous=NORMAL;");
+                stmt.execute("PRAGMA foreign_keys = ON;");
             }
             return conn;
         } catch (Exception e) {
@@ -271,6 +282,28 @@ public class DatabaseService {
                     fecha_limite VARCHAR(20) NOT NULL
                 )
             """);
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS operaciones_historicas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fecha TEXT NOT NULL,
+                    referencia_papel TEXT,
+                    cliente TEXT,
+                    descripcion TEXT NOT NULL,
+                    importe_total_centavos INTEGER NOT NULL CHECK (importe_total_centavos >= 0),
+                    costo_materiales_centavos INTEGER CHECK (costo_materiales_centavos IS NULL OR costo_materiales_centavos >= 0),
+                    observaciones TEXT,
+                    estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'DIGITALIZADO')),
+                    boleta_digital_id INTEGER,
+                    creado_en TEXT NOT NULL,
+                    actualizado_en TEXT NOT NULL,
+                    FOREIGN KEY (boleta_digital_id) REFERENCES boletas(id) ON DELETE SET NULL
+                )
+            """);
+
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_boletas_fecha ON boletas(fecha)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_operaciones_historicas_fecha_estado ON operaciones_historicas(fecha, estado)");
+            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_operacion_boleta_digital ON operaciones_historicas(boleta_digital_id) WHERE boleta_digital_id IS NOT NULL");
 
             ejecutarMigraciones(conn, MIGRACIONES);
 

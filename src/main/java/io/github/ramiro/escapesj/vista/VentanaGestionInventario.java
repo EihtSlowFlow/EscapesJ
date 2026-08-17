@@ -13,7 +13,7 @@ public class VentanaGestionInventario extends JFrame {
     private final ProductoRepository repository;
     private DefaultTableModel model;
     private JTable tabla;
-    private JTextField txtCod, txtNom, txtDesc, txtPre, txtStock;
+    private JTextField txtCod, txtNom, txtDesc, txtPre, txtCosto, txtStock;
 
     public VentanaGestionInventario(ProductoRepository repository) {
         this.repository = repository;
@@ -29,10 +29,10 @@ public class VentanaGestionInventario extends JFrame {
         setLayout(new BorderLayout(15, 15));
 
         // 1. TABLA CON BOTÓN "MODIFICAR"
-        model = new DefaultTableModel(new Object[]{"Código", "Nombre", "Descripción", "Precio", "Stock", "Acción"}, 0) {
+        model = new DefaultTableModel(new Object[]{"Código", "Nombre", "Descripción", "Precio", "Costo", "Stock", "Acción"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 5;
+                return column == 6;
             } // Solo la columna del botón es editable
         };
 
@@ -40,8 +40,8 @@ public class VentanaGestionInventario extends JFrame {
         estilizarTabla(tabla);
 
         // Configurar el botón dentro de la celda
-        tabla.getColumnModel().getColumn(5).setCellRenderer(new ButtonRenderer());
-        tabla.getColumnModel().getColumn(5).setCellEditor(new ButtonEditor(new JCheckBox()));
+        tabla.getColumnModel().getColumn(6).setCellRenderer(new ButtonRenderer());
+        tabla.getColumnModel().getColumn(6).setCellEditor(new ButtonEditor(new JCheckBox()));
 
         JScrollPane scrollTabla = new JScrollPane(tabla);
         scrollTabla.getViewport().setBackground(new Color(45, 52, 71));
@@ -65,13 +65,14 @@ public class VentanaGestionInventario extends JFrame {
         txtNom = crearCampo("Nombre / Modelo", pnlNuevo, gbc, 2);
         txtDesc = crearCampo("Descripción Técnica", pnlNuevo, gbc, 4);
         txtPre = crearCampo("Precio Unitario", pnlNuevo, gbc, 6);
-        txtStock = crearCampo("Stock Inicial", pnlNuevo, gbc, 8);
+        txtCosto = crearCampo("Costo Unitario (Vacío = Desc.)", pnlNuevo, gbc, 8);
+        txtStock = crearCampo("Stock Inicial", pnlNuevo, gbc, 10);
 
         JButton btnGuardar = new JButton("Registrar Producto");
         btnGuardar.setBackground(new Color(46, 204, 113));
         btnGuardar.setForeground(Color.WHITE);
         btnGuardar.addActionListener(e -> registrarNuevo());
-        gbc.gridy = 10;
+        gbc.gridy = 12;
         pnlNuevo.add(btnGuardar, gbc);
 
         JScrollPane scrollNuevo = new JScrollPane(pnlNuevo);
@@ -93,9 +94,14 @@ public class VentanaGestionInventario extends JFrame {
 
     private void registrarNuevo() {
         try {
+            String costoStr = txtCosto.getText().trim();
+            java.math.BigDecimal costo = null;
+            if (!costoStr.isEmpty()) {
+                costo = new java.math.BigDecimal(costoStr);
+            }
             Producto p = new Producto(txtCod.getText().trim(), txtNom.getText().trim(),
                     txtDesc.getText().trim(), new java.math.BigDecimal(txtPre.getText().trim()),
-                    Integer.parseInt(txtStock.getText().trim()));
+                    Integer.parseInt(txtStock.getText().trim()), costo);
             repository.guardar(p);
             actualizarTabla();
             limpiarCampos();
@@ -113,7 +119,8 @@ public class VentanaGestionInventario extends JFrame {
         model.setRowCount(0);
         try {
             repository.buscarTodos().forEach(p -> {
-                model.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getStock(), "MODIFICAR"});
+                String costoStr = p.getCostoUnitario() == null ? "No conf." : "$" + p.getCostoUnitario();
+                model.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getDescripcion(), "$" + p.getPrecio(), costoStr, p.getStock(), "MODIFICAR"});
             });
         } catch (io.github.ramiro.escapesj.persistencia.PersistenceException ex) {
             ErrorHandler.mostrarErrorPersistencia(this, "cargar inventario", ex);
@@ -189,6 +196,7 @@ public class VentanaGestionInventario extends JFrame {
         txtNom.setText("");
         txtDesc.setText("");
         txtPre.setText("");
+        txtCosto.setText("");
         txtStock.setText("");
     }
 

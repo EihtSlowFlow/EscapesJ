@@ -7,6 +7,8 @@ import io.github.ramiro.escapesj.persistencia.BoletaRepository;
 import io.github.ramiro.escapesj.persistencia.PresupuestoRepository;
 import io.github.ramiro.escapesj.persistencia.ServicioRepository;
 import io.github.ramiro.escapesj.persistencia.UsuarioRepository;
+import io.github.ramiro.escapesj.persistencia.OperacionHistoricaRepository;
+import io.github.ramiro.escapesj.servicio.RentabilidadService;
 import io.github.ramiro.escapesj.sdk.AfipService;
 
 import javax.swing.*;
@@ -57,14 +59,16 @@ public class VentanaMenu extends JFrame {
         add(new PanelLogoGrande(), gbc);
 
         // 2. LOS BOTONES EN EL CENTRO INFERIOR
-        JPanel pnlBotones = new JPanel(new GridLayout(5, 1, 10, 10));
+        JPanel pnlBotones = new JPanel(new GridLayout(7, 1, 10, 10));
         pnlBotones.setOpaque(false);
-        pnlBotones.setPreferredSize(new Dimension(360, 300));
+        pnlBotones.setPreferredSize(new Dimension(360, 400));
 
         JButton btnVenta = crearBotonMenu("Registrar Venta / Servicio", new Color(231, 76, 60));
         JButton btnPresupuesto = crearBotonMenu("Generar Presupuesto", new Color(155, 89, 182));
         JButton btnInv = crearBotonMenu("Gestionar Inventario", new Color(52, 152, 219));
         JButton btnServ = crearBotonMenu("Gestionar Servicios (Historial)", new Color(46, 204, 113));
+        JButton btnPapel = crearBotonMenu("Registros en Papel", new Color(243, 156, 18));
+        JButton btnRent = crearBotonMenu("Panel de Rentabilidad Mensual", new Color(211, 84, 0));
         JButton btnConfig = crearBotonMenu("Configuración", new Color(149, 165, 166));
 
         btnVenta.addActionListener(e -> new VentanaPrincipal(afip, inv, prodRepo, servRepo, boletaRepo, configRepo).setVisible(true));
@@ -72,11 +76,17 @@ public class VentanaMenu extends JFrame {
         btnInv.addActionListener(e -> new VentanaGestionInventario(prodRepo).setVisible(true));
         btnServ.addActionListener(e -> new VentanaGestionServicios(servRepo, boletaRepo).setVisible(true));
         btnConfig.addActionListener(e -> new VentanaConfiguracion(configRepo, usuarioRepo).setVisible(true));
+        
+        OperacionHistoricaRepository opRepo = new OperacionHistoricaRepository();
+        btnPapel.addActionListener(e -> new VentanaOperacionesHistoricas(opRepo, boletaRepo).setVisible(true));
+        btnRent.addActionListener(e -> new VentanaRentabilidadMensual(new RentabilidadService(boletaRepo, opRepo)).setVisible(true));
 
         pnlBotones.add(btnVenta);
         pnlBotones.add(btnPresupuesto);
         pnlBotones.add(btnInv);
         pnlBotones.add(btnServ);
+        pnlBotones.add(btnPapel);
+        pnlBotones.add(btnRent);
         pnlBotones.add(btnConfig);
         gbc.gridy = 1;
         gbc.weighty = 0.0;

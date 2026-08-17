@@ -10,7 +10,7 @@ public class VentanaModificarProducto extends JDialog {
     private final ProductoRepository repository;
     private final Producto productoOriginal;
     private JPanel content;
-    private JTextField txtCod, txtNom, txtDesc, txtPre, txtStock;
+    private JTextField txtCod, txtNom, txtDesc, txtPre, txtCosto, txtStock;
     private boolean actualizado = false;
 
     public VentanaModificarProducto(JFrame parent, Producto p, ProductoRepository repo) {
@@ -33,14 +33,15 @@ public class VentanaModificarProducto extends JDialog {
         txtNom = crearCampo("Nombre / Modelo", 2);
         txtDesc = crearCampo("Descripción Técnica", 4);
         txtPre = crearCampo("Precio Unitario", 6);
-        txtStock = crearCampo("Stock Actual", 8);
+        txtCosto = crearCampo("Costo Unitario (Vacío = No configurado)", 8);
+        txtStock = crearCampo("Stock Actual", 10);
 
         JButton btnGuardar = new JButton("Confirmar Cambios");
         btnGuardar.setBackground(new Color(46, 204, 113));
         btnGuardar.setForeground(Color.WHITE);
         btnGuardar.addActionListener(e -> procesarActualizacion());
 
-        gbc.gridy = 10;
+        gbc.gridy = 12;
         content.add(btnGuardar, gbc);
 
         JScrollPane scrollPane = new JScrollPane(content);
@@ -55,17 +56,24 @@ public class VentanaModificarProducto extends JDialog {
         txtNom.setText(productoOriginal.getNombre());
         txtDesc.setText(productoOriginal.getDescripcion());
         txtPre.setText(String.valueOf(productoOriginal.getPrecio()));
+        txtCosto.setText(productoOriginal.getCostoUnitario() == null ? "" : String.valueOf(productoOriginal.getCostoUnitario()));
         txtStock.setText(String.valueOf(productoOriginal.getStock()));
     }
 
     private void procesarActualizacion() {
         try {
+            String costoStr = txtCosto.getText().trim();
+            java.math.BigDecimal costo = null;
+            if (!costoStr.isEmpty()) {
+                costo = new java.math.BigDecimal(costoStr);
+            }
             Producto nuevo = new Producto(
                     txtCod.getText().trim(),
                     txtNom.getText().trim(),
                     txtDesc.getText().trim(),
                     new java.math.BigDecimal(txtPre.getText().trim()),
-                    Integer.parseInt(txtStock.getText().trim())
+                    Integer.parseInt(txtStock.getText().trim()),
+                    costo
             );
             repository.actualizarConCambioDeCodigo(nuevo, productoOriginal.getCodigo());
             actualizado = true;
